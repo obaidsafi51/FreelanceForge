@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+target/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Substrate specific
+substrate-node/target/
+substrate-node/.cargo/
+
+# React specific
+frontend/dist/
+frontend/build/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Coverage reports
+coverage/
+
+# Package manager locks (keep package-lock.json but ignore yarn.lock)
+yarn.lock
+pnpm-lock.yaml
