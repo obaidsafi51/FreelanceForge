@@ -2,21 +2,20 @@
 // This file contains type definitions that match the Substrate pallet schema
 
 import type { Codec } from '@polkadot/types/types';
-import type { Vec, Option } from '@polkadot/types';
+import type { Vec, Option, U8aFixed, Bytes } from '@polkadot/types';
 import type { AccountId32, H256 } from '@polkadot/types/interfaces';
 import type { Observable } from 'rxjs';
 import type { 
   AugmentedQuery, 
   AugmentedSubmittable, 
   AugmentedEvent, 
-  AugmentedError,
-  SubmittableExtrinsic 
+  AugmentedError
 } from '@polkadot/api-base/types';
 
 // Pallet-specific types
 export interface PalletFreelanceCredentialsCredential extends Codec {
   readonly owner: AccountId32;
-  readonly metadata: Vec<u8>;
+  readonly metadata: Bytes;
 }
 
 export interface PalletFreelanceCredentialsError extends Codec {
@@ -55,12 +54,12 @@ export interface FreelanceCredentialsStorage {
 export interface FreelanceCredentialsCall extends Codec {
   readonly isMintCredential: boolean;
   readonly asMintCredential: {
-    readonly metadataJson: Vec<u8>;
+    readonly metadataJson: Bytes;
   };
   readonly isUpdateCredential: boolean;
   readonly asUpdateCredential: {
     readonly credentialId: H256;
-    readonly visibility: Option<Vec<u8>>;
+    readonly visibility: Option<Bytes>;
     readonly proofHash: Option<H256>;
   };
   readonly isDeleteCredential: boolean;
@@ -91,19 +90,19 @@ declare module '@polkadot/api-base/types/submittable' {
   interface AugmentedSubmittables<ApiType> {
     freelanceCredentials: {
       mintCredential: AugmentedSubmittable<
-        (metadataJson: Vec<u8> | string | Uint8Array) => SubmittableExtrinsic<ApiType>,
-        [Vec<u8>]
+        (metadataJson: Bytes | string | Uint8Array) => any,
+        [Bytes]
       >;
       updateCredential: AugmentedSubmittable<
         (
           credentialId: H256 | string | Uint8Array,
-          visibility: Option<Vec<u8>> | null | Uint8Array | Vec<u8> | string,
+          visibility: Option<Bytes> | null | Uint8Array | Bytes | string,
           proofHash: Option<H256> | null | Uint8Array | H256 | string
-        ) => SubmittableExtrinsic<ApiType>,
-        [H256, Option<Vec<u8>>, Option<H256>]
+        ) => any,
+        [H256, Option<Bytes>, Option<H256>]
       >;
       deleteCredential: AugmentedSubmittable<
-        (credentialId: H256 | string | Uint8Array) => SubmittableExtrinsic<ApiType>,
+        (credentialId: H256 | string | Uint8Array) => any,
         [H256]
       >;
     };
@@ -145,4 +144,4 @@ declare module '@polkadot/api-base/types/errors' {
 }
 
 // Re-export common types for convenience
-export type { AccountId32, H256, Vec, Option };
+export type { AccountId32, H256, Vec, Option, Bytes };

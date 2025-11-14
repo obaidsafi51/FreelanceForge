@@ -56,7 +56,7 @@ export interface FreelanceCredentialsError extends Codec {
 }
 
 // Type-safe API interface
-export interface FreelanceForgeApi extends ApiPromise {
+export interface FreelanceForgeApi {
   tx: {
     freelanceCredentials: {
       mintCredential: (metadataJson: Bytes | string | Uint8Array) => any;
@@ -83,4 +83,4 @@ export interface FreelanceForgeApi extends ApiPromise {
   };
 }
 
-export default FreelanceForgeApi;
+export { FreelanceForgeApi as default };

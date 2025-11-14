@@ -3,18 +3,20 @@ import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import type { Credential } from '../types';
 
 // API Error types
-export enum ApiErrorType {
-  CONNECTION_FAILED = 'CONNECTION_FAILED',
-  TRANSACTION_FAILED = 'TRANSACTION_FAILED',
-  INSUFFICIENT_BALANCE = 'INSUFFICIENT_BALANCE',
-  CREDENTIAL_ALREADY_EXISTS = 'CREDENTIAL_ALREADY_EXISTS',
-  METADATA_TOO_LARGE = 'METADATA_TOO_LARGE',
-  TOO_MANY_CREDENTIALS = 'TOO_MANY_CREDENTIALS',
-  CREDENTIAL_NOT_FOUND = 'CREDENTIAL_NOT_FOUND',
-  NOT_CREDENTIAL_OWNER = 'NOT_CREDENTIAL_OWNER',
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-}
+export const ApiErrorType = {
+  CONNECTION_FAILED: 'CONNECTION_FAILED',
+  TRANSACTION_FAILED: 'TRANSACTION_FAILED',
+  INSUFFICIENT_BALANCE: 'INSUFFICIENT_BALANCE',
+  CREDENTIAL_ALREADY_EXISTS: 'CREDENTIAL_ALREADY_EXISTS',
+  METADATA_TOO_LARGE: 'METADATA_TOO_LARGE',
+  TOO_MANY_CREDENTIALS: 'TOO_MANY_CREDENTIALS',
+  CREDENTIAL_NOT_FOUND: 'CREDENTIAL_NOT_FOUND',
+  NOT_CREDENTIAL_OWNER: 'NOT_CREDENTIAL_OWNER',
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+} as const;
+
+export type ApiErrorType = typeof ApiErrorType[keyof typeof ApiErrorType];
 
 export class ApiError extends Error {
   constructor(
@@ -266,14 +268,14 @@ class FreelanceForgeAPI {
       const tx = api.tx.freelanceCredentials.mintCredential(metadataBytes);
       
       return new Promise<TransactionResult>((resolve, reject) => {
-        tx.signAndSend(accountAddress, { signer: injector.signer }, (result) => {
+        tx.signAndSend(accountAddress, { signer: injector.signer }, (result: any) => {
           if (result.status.isInBlock) {
             console.log(`Transaction included in block: ${result.status.asInBlock}`);
           } else if (result.status.isFinalized) {
             console.log(`Transaction finalized: ${result.status.asFinalized}`);
             
             // Check for errors in events
-            const errorEvent = result.events.find(({ event }) => 
+            const errorEvent = result.events.find(({ event }: any) => 
               api.events.system.ExtrinsicFailed.is(event)
             );
             
@@ -283,7 +285,7 @@ class FreelanceForgeAPI {
               
               if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError) {
                 try {
-                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  const decoded = api.registry.findMetaError((dispatchError as any).asModule);
                   errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs}`;
                   
                   // Map pallet errors to API errors
@@ -316,7 +318,7 @@ class FreelanceForgeAPI {
               'Transaction failed'
             ));
           }
-        }).catch((error) => {
+        }).catch((error: any) => {
           if (error.message.includes('Cancelled')) {
             reject(new ApiError(ApiErrorType.TRANSACTION_FAILED, 'Transaction cancelled by user'));
           } else if (error.message.includes('balance')) {
@@ -361,10 +363,10 @@ class FreelanceForgeAPI {
       );
       
       return new Promise<TransactionResult>((resolve, reject) => {
-        tx.signAndSend(accountAddress, { signer: injector.signer }, (result) => {
+        tx.signAndSend(accountAddress, { signer: injector.signer }, (result: any) => {
           if (result.status.isFinalized) {
             // Check for errors in events
-            const errorEvent = result.events.find(({ event }) => 
+            const errorEvent = result.events.find(({ event }: any) => 
               api.events.system.ExtrinsicFailed.is(event)
             );
             
@@ -374,7 +376,7 @@ class FreelanceForgeAPI {
               
               if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError) {
                 try {
-                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  const decoded = api.registry.findMetaError((dispatchError as any).asModule);
                   errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs}`;
                   
                   if (decoded.name === 'CredentialNotFound') {
@@ -403,7 +405,7 @@ class FreelanceForgeAPI {
               'Update transaction failed'
             ));
           }
-        }).catch((error) => {
+        }).catch((error: any) => {
           if (error.message.includes('Cancelled')) {
             reject(new ApiError(ApiErrorType.TRANSACTION_FAILED, 'Transaction cancelled by user'));
           } else if (error.message.includes('balance')) {
@@ -436,10 +438,10 @@ class FreelanceForgeAPI {
       const tx = api.tx.freelanceCredentials.deleteCredential(credentialId);
       
       return new Promise<TransactionResult>((resolve, reject) => {
-        tx.signAndSend(accountAddress, { signer: injector.signer }, (result) => {
+        tx.signAndSend(accountAddress, { signer: injector.signer }, (result: any) => {
           if (result.status.isFinalized) {
             // Check for errors in events
-            const errorEvent = result.events.find(({ event }) => 
+            const errorEvent = result.events.find(({ event }: any) => 
               api.events.system.ExtrinsicFailed.is(event)
             );
             
@@ -449,7 +451,7 @@ class FreelanceForgeAPI {
               
               if (dispatchError && typeof dispatchError === 'object' && 'isModule' in dispatchError) {
                 try {
-                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  const decoded = api.registry.findMetaError((dispatchError as any).asModule);
                   errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs}`;
                   
                   if (decoded.name === 'CredentialNotFound') {
@@ -478,7 +480,7 @@ class FreelanceForgeAPI {
               'Delete transaction failed'
             ));
           }
-        }).catch((error) => {
+        }).catch((error: any) => {
           if (error.message.includes('Cancelled')) {
             reject(new ApiError(ApiErrorType.TRANSACTION_FAILED, 'Transaction cancelled by user'));
           } else if (error.message.includes('balance')) {
