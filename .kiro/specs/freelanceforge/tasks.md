@@ -73,7 +73,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
   - _Dependencies: Task 1 (React project structure must be initialized)_
 
-- [ ] 6. Implement Polkadot.js API integration layer
+- [x] 6. Implement Polkadot.js API integration layer
 
   - Create API utility class with connection management and endpoint fallback logic
   - Configure RPC endpoints: Use `ws://127.0.0.1:9944` for local development only, `wss://paseo.dotters.network` (primary) and fallback endpoints for production
