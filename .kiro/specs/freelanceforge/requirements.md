@@ -20,7 +20,11 @@ The MVP targets the Polkadot Cloud Hackathon's "User-Centric Apps" and "Polkadot
 4. WHEN a user attempts to mint a duplicate credential (same metadata hash) THEN the system SHALL reject it with "CredentialAlreadyExists" error
 5. WHEN an NFT is successfully minted THEN the system SHALL emit a CredentialMinted event with credential_id and owner
 6. WHEN a credential is minted THEN the transaction cost SHALL be <0.01 DOT on Paseo testnet
-7. WHEN a credential NFT is created THEN it SHALL be soulbound (non-transferable) by default
+7. WHEN a credential NFT is created THEN it SHALL be soulbound (non-transferable) by default - no transfer functionality SHALL be implemented
+8. WHEN a user attempts to transfer a credential THEN the operation SHALL fail (no transfer extrinsic exists in pallet)
+9. WHEN a credential is minted THEN the user SHALL be able to update its visibility (public/private) and add proof_hash post-minting via update_credential extrinsic
+10. WHEN a user owns a credential THEN they SHALL be able to delete it via delete_credential extrinsic if minted incorrectly
+11. WHEN credential metadata includes proof documents THEN only the SHA256 hash (proof_hash) SHALL be stored on-chain, not the full document (due to 4KB storage limit)
 
 ### Requirement 2: Portfolio Dashboard Interface
 

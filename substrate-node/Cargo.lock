@@ -7326,6 +7326,7 @@ dependencies = [
 name = "minimal-template-runtime"
 version = "0.1.0"
 dependencies = [
+ "pallet-freelance-credentials",
  "pallet-minimal-template",
  "parity-scale-codec",
  "polkadot-sdk 2503.0.1",
@@ -8747,6 +8748,15 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+]
+
+[[package]]
+name = "pallet-freelance-credentials"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "polkadot-sdk 2503.0.1",
+ "scale-info",
 ]
 
 [[package]]

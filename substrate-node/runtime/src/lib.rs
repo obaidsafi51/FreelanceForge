@@ -166,6 +166,10 @@ mod runtime {
 	/// A minimal pallet template.
 	#[runtime::pallet_index(5)]
 	pub type Template = pallet_minimal_template::Pallet<Runtime>;
+
+	/// FreelanceForge credentials pallet for managing soulbound credential NFTs.
+	#[runtime::pallet_index(6)]
+	pub type FreelanceCredentials = pallet_freelance_credentials::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -207,6 +211,11 @@ impl pallet_transaction_payment::Config for Runtime {
 
 // Implements the types required for the template pallet.
 impl pallet_minimal_template::Config for Runtime {}
+
+// Implements the types required for the freelance credentials pallet.
+impl pallet_freelance_credentials::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+}
 
 type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;
 type Header = HeaderFor<Runtime>;

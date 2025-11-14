@@ -6,6 +6,26 @@ FreelanceForge is architected as a decentralized application leveraging Polkadot
 
 The design prioritizes user sovereignty, cross-chain interoperability, and cost efficiency while maintaining the simplicity required for a 7-day development sprint. The architecture separates concerns between blockchain operations (Substrate pallet), state management (TanStack Query), and user interface (React components), enabling parallel development and testing.
 
+### Critical Design Clarifications
+
+**Storage Architecture:**
+
+- **On-chain storage**: Limited to 4KB per credential, containing JSON metadata (name, type, issuer, rating, timestamp, visibility, and proof_hash)
+- **Proof documents**: Full documents (up to 5MB) are uploaded for hashing purposes only; only the SHA256 hash is stored on-chain
+- **Future enhancement**: Off-chain storage (IPFS/Arweave) can be integrated to store full documents while keeping hashes on-chain for verification
+
+**Soulbound Credentials:**
+
+- All credentials are non-transferable by design (no transfer functionality implemented)
+- Credentials are permanently bound to the minting account
+- Users can update visibility (public/private) and delete credentials, but cannot transfer ownership
+
+**Network Strategy:**
+
+- Single-network targeting: Local development OR Paseo testnet (not dynamic switching)
+- Avoids state synchronization issues between different blockchain networks
+- Environment variables control target network
+
 ## Architecture
 
 ### System Architecture Diagram
@@ -46,16 +66,16 @@ graph TB
 
 ### Technology Stack
 
-| Component              | Technology               | Version | Purpose                                         |
-| ---------------------- | ------------------------ | ------- | ----------------------------------------------- |
-| **Backend Runtime**    | Substrate (Rust)         | 3.0+    | Custom blockchain logic for NFT minting/storage |
-| **Frontend Framework** | React.js                 | 18.2.0  | User interface and dashboard                    |
-| **State Management**   | TanStack Query           | 5.51.x  | Server state and async data management          |
-| **Blockchain API**     | @polkadot/api            | 11.3.1  | Connect frontend to Substrate node              |
-| **Wallet Integration** | @polkadot/extension-dapp | 0.47.x  | Wallet connection and transaction signing       |
-| **UI Components**      | @mui/material            | 5.16.x  | Pre-built responsive components                 |
-| **Data Export**        | Native JSON.stringify    | N/A     | Generate JSON resumes                           |
-| **QR Generation**      | qrcode.react             | 3.1.x   | Generate shareable QR codes                     |
+| Component              | Technology               | Version | Purpose                                                         |
+| ---------------------- | ------------------------ | ------- | --------------------------------------------------------------- |
+| **Backend Runtime**    | Polkadot SDK (Substrate) | 1.17.0  | Custom blockchain logic for NFT minting/storage                 |
+| **Frontend Framework** | React.js                 | 18.2.0  | User interface and dashboard                                    |
+| **State Management**   | TanStack Query           | 5.51.x  | Server state and async data management                          |
+| **Blockchain API**     | @polkadot/api            | 11.3.1  | Connect frontend to Substrate node (compatible with SDK 1.17.0) |
+| **Wallet Integration** | @polkadot/extension-dapp | 0.47.x  | Wallet connection and transaction signing                       |
+| **UI Components**      | @mui/material            | 5.16.x  | Pre-built responsive components                                 |
+| **Data Export**        | Native JSON.stringify    | N/A     | Generate JSON resumes                                           |
+| **QR Generation**      | qrcode.react             | 3.1.x   | Generate shareable QR codes                                     |
 
 ### Network Architecture
 
@@ -88,10 +108,13 @@ graph LR
 
 ```rust
 // Storage: credential_id -> (owner, JSON metadata)
+// Note: BoundedVec<u8, ConstU32<4096>> stores credential metadata as JSON (max 4KB)
+// This includes credential name, type, issuer, rating, timestamp, visibility, and proof_hash
+// Full proof documents are NOT stored on-chain - only their SHA256 hash (proof_hash field) is stored
 #[pallet::storage]
 pub type Credentials<T: Config> = StorageMap<
     _,
-    Blake2_128Concat,
+    Blake2_128Concat,  // Uses Blake2_128 hashing for credential IDs (content-addressable)
     T::Hash,
     (T::AccountId, BoundedVec<u8, ConstU32<4096>>),
     OptionQuery,
@@ -103,7 +126,7 @@ pub type OwnerCredentials<T: Config> = StorageMap<
     _,
     Blake2_128Concat,
     T::AccountId,
-    BoundedVec<T::Hash, ConstU32<500>>,
+    BoundedVec<T::Hash, ConstU32<500>>,  // Max 500 credentials per account
     ValueQuery,
 >;
 ```
@@ -113,7 +136,7 @@ pub type OwnerCredentials<T: Config> = StorageMap<
 ```rust
 #[pallet::call]
 impl<T: Config> Pallet<T> {
-    /// Mint a new credential NFT
+    /// Mint a new credential NFT (soulbound - non-transferable)
     ///
     /// Parameters:
     /// - metadata_json: JSON string containing credential data (max 4KB)
@@ -123,10 +146,49 @@ impl<T: Config> Pallet<T> {
     ///
     /// Emits:
     /// - CredentialMinted event with credential_id and owner
+    ///
+    /// Note: Credentials are soulbound and permanently tied to the minting account.
+    /// No transfer functionality is implemented.
     #[pallet::weight(T::DbWeight::get().reads_writes(2, 2) + 50_000)]
     pub fn mint_credential(
         origin: OriginFor<T>,
         metadata_json: Vec<u8>,
+    ) -> DispatchResult;
+
+    /// Update an existing credential's visibility or proof_hash
+    ///
+    /// Parameters:
+    /// - credential_id: Hash of the credential to update
+    /// - visibility: Optional new visibility setting ("public" or "private")
+    /// - proof_hash: Optional SHA256 hash of supporting document
+    ///
+    /// Returns:
+    /// - DispatchResult indicating success/failure
+    ///
+    /// Emits:
+    /// - CredentialUpdated event with credential_id
+    #[pallet::weight(T::DbWeight::get().reads_writes(2, 1) + 30_000)]
+    pub fn update_credential(
+        origin: OriginFor<T>,
+        credential_id: T::Hash,
+        visibility: Option<Vec<u8>>,
+        proof_hash: Option<T::Hash>,
+    ) -> DispatchResult;
+
+    /// Delete a credential (only by owner)
+    ///
+    /// Parameters:
+    /// - credential_id: Hash of the credential to delete
+    ///
+    /// Returns:
+    /// - DispatchResult indicating success/failure
+    ///
+    /// Emits:
+    /// - CredentialDeleted event with credential_id
+    #[pallet::weight(T::DbWeight::get().reads_writes(2, 2) + 40_000)]
+    pub fn delete_credential(
+        origin: OriginFor<T>,
+        credential_id: T::Hash,
     ) -> DispatchResult;
 }
 ```
@@ -142,6 +204,10 @@ pub enum Error<T> {
     MetadataTooLarge,
     /// User has reached maximum of 500 credentials
     TooManyCredentials,
+    /// Credential not found
+    CredentialNotFound,
+    /// Caller is not the credential owner
+    NotCredentialOwner,
 }
 ```
 
@@ -371,12 +437,12 @@ interface TrustScoreCalculation {
     totalVolume: number;
     recentVolume: number;
     recencyFactor: number; // 1.0, 0.7, or 0.5 based on age
-    paymentScore: number; // MIN(100, (volume / 1000) * 10) * recency * 0.1
+    paymentScore: number; // (MIN(100, (volume / 1000) * 10) * recency) * 0.10 - weight applied to full payment score
   };
 
   // Final output
-  totalScore: number; // Sum of all component scores
-  tier: "Bronze" | "Silver" | "Gold" | "Platinum";
+  totalScore: number; // Sum of all component scores (reviewScore + skillScore + paymentScore)
+  tier: "Bronze" | "Silver" | "Gold" | "Platinum"; // Bronze: 0-25, Silver: 26-50, Gold: 51-75, Platinum: 76-100
 }
 ```
 
