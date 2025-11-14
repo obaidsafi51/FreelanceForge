@@ -88,7 +88,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 1.1, 1.5, 1.6, 3.4, 7.2, 7.3_
   - _Dependencies: Task 4 (local Substrate node must be running), Task 5 (wallet integration must be ready)_
 
-- [ ] 7. Set up TanStack Query for state management and caching
+- [x] 7. Set up TanStack Query for state management and caching
 
   - Configure QueryClient with appropriate cache settings (60s stale time, 5min cache time)
   - Create `useCredentials` hook for fetching and caching user credential data
