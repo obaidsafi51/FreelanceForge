@@ -12,12 +12,22 @@ import {
 import { Dashboard as DashboardIcon } from '@mui/icons-material';
 import { WalletConnection } from '../components/WalletConnection';
 import { CredentialDemo } from '../components/CredentialDemo';
+import { CredentialTimeline } from '../components/CredentialTimeline';
+import { CredentialTimelineDemo } from '../components/CredentialTimelineDemo';
 import { useWallet } from '../contexts/WalletContext';
+import { useCredentials } from '../hooks/useCredentials';
 import { useState } from 'react';
 
 export function Dashboard() {
   const { isConnected, selectedAccount } = useWallet();
   const [tabValue, setTabValue] = useState(0);
+
+  // Fetch credentials for the connected account
+  const {
+    data: credentials = [],
+    isLoading: credentialsLoading,
+    error: credentialsError,
+  } = useCredentials(selectedAccount?.address || null);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -46,6 +56,7 @@ export function Dashboard() {
           <Paper sx={{ mb: 2 }}>
             <Tabs value={tabValue} onChange={handleTabChange} sx={{ px: 2 }}>
               <Tab label="Portfolio View" />
+              <Tab label="Timeline Demo" />
               <Tab label="TanStack Query Demo" />
             </Tabs>
           </Paper>
@@ -54,25 +65,11 @@ export function Dashboard() {
             <Grid container spacing={3}>
               <Grid item xs={12} md={8}>
                 <Paper sx={{ p: 3, minHeight: 400 }}>
-                  <Typography variant="h5" gutterBottom>
-                    Credential Timeline
-                  </Typography>
-                  <Typography color="text.secondary">
-                    Your credentials will appear here once you start minting them.
-                  </Typography>
-                  <Box
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    minHeight={300}
-                    bgcolor="grey.50"
-                    borderRadius={1}
-                    mt={2}
-                  >
-                    <Typography variant="body1" color="text.secondary">
-                      No credentials found for {selectedAccount?.meta.name || 'this account'}
-                    </Typography>
-                  </Box>
+                  <CredentialTimeline
+                    credentials={credentials}
+                    loading={credentialsLoading}
+                    error={credentialsError?.message || null}
+                  />
                 </Paper>
               </Grid>
 
@@ -108,6 +105,12 @@ export function Dashboard() {
           )}
 
           {tabValue === 1 && (
+            <Paper sx={{ p: 3 }}>
+              <CredentialTimelineDemo />
+            </Paper>
+          )}
+
+          {tabValue === 2 && (
             <CredentialDemo walletAddress={selectedAccount?.address || null} />
           )}
         </Box>
