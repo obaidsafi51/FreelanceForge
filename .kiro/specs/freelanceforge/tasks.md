@@ -114,7 +114,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 1.1, 1.2, 1.7, 5.1 (file upload for hashing), 7.1, 7.6, 9.7 (visibility)_
   - _Dependencies: Task 6 (API integration), Task 7 (TanStack Query setup)_
 
-- [ ] 9. Develop dashboard with credential timeline display
+- [x] 9. Develop dashboard with credential timeline display
 
   - Create credential timeline component with chronological card-based layout
   - Implement credential cards showing icon, name, issuer, date, rating with hover effects
