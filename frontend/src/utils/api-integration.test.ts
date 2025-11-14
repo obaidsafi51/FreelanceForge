@@ -11,10 +11,8 @@ import {
   type CredentialMetadata 
 } from './api';
 
-// Skip these tests if no Substrate node is running
-const SKIP_INTEGRATION_TESTS = !process.env.RUN_INTEGRATION_TESTS;
-
-describe.skipIf(SKIP_INTEGRATION_TESTS)('API Integration Tests', () => {
+// Run integration tests since blockchain node is available
+describe('API Integration Tests', () => {
   beforeAll(async () => {
     try {
       await connectToBlockchain();

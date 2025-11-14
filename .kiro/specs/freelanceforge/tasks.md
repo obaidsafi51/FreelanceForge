@@ -99,7 +99,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 2.1, 2.6, 8.4, 8.7_
   - _Dependencies: Task 5 (React foundation), Task 6 (API integration layer)_
 
-- [ ] 8. Build credential minting interface and form validation
+- [x] 8. Build credential minting interface and form validation
 
   - Create credential minting form with fields for name, description, type, issuer, rating
   - Implement form validation using Yup schema with proper error messages

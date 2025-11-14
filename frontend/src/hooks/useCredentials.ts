@@ -2,8 +2,7 @@ import {
   useQuery, 
   useMutation, 
   useQueryClient,
-  type UseQueryOptions,
-  type UseMutationOptions
+  type UseQueryOptions
 } from '@tanstack/react-query';
 import { 
   getCredentials, 
@@ -11,7 +10,6 @@ import {
   updateCredential, 
   deleteCredential,
   type CredentialMetadata,
-  type TransactionResult,
   ApiError,
   ApiErrorType
 } from '../utils/api';
@@ -44,14 +42,14 @@ export function useCredentials(
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: (failureCount, error) => {
       if (error instanceof ApiError) {
-        const nonRetryableErrors = [
+        const nonRetryableErrors: ApiErrorType[] = [
           ApiErrorType.CREDENTIAL_ALREADY_EXISTS,
           ApiErrorType.METADATA_TOO_LARGE,
           ApiErrorType.TOO_MANY_CREDENTIALS,
           ApiErrorType.NOT_CREDENTIAL_OWNER,
           ApiErrorType.VALIDATION_ERROR,
         ];
-        if (nonRetryableErrors.includes(error.type)) {
+        if (nonRetryableErrors.includes(error.type as ApiErrorType)) {
           return false;
         }
       }
@@ -70,7 +68,7 @@ export function useMintCredential() {
     mutationFn: async (params: { accountAddress: string; credentialData: CredentialMetadata }) => {
       return mintCredential(params.accountAddress, params.credentialData);
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       // Invalidate and refetch credentials to get the real data
       queryClient.invalidateQueries({ 
         queryKey: credentialQueryKeys.list(variables.accountAddress) 
@@ -94,7 +92,7 @@ export function useUpdateCredential() {
     }) => {
       return updateCredential(params.accountAddress, params.credentialId, params.updates);
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       // Invalidate credentials list
       queryClient.invalidateQueries({ 
         queryKey: credentialQueryKeys.list(variables.accountAddress) 
@@ -111,7 +109,7 @@ export function useDeleteCredential() {
     mutationFn: async (params: { accountAddress: string; credentialId: string }) => {
       return deleteCredential(params.accountAddress, params.credentialId);
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       // Invalidate credentials list
       queryClient.invalidateQueries({ 
         queryKey: credentialQueryKeys.list(variables.accountAddress) 
