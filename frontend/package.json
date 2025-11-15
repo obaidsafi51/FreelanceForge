@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:production": "NODE_ENV=production tsc -b && vite build --mode production",
+    "build:analyze": "npm run build:production && npx vite-bundle-analyzer dist/stats.html",
     "lint": "eslint .",
     "preview": "vite preview",
+    "preview:production": "vite preview --mode production",
     "test": "vitest --run",
     "test:watch": "vitest",
     "generate-types": "node scripts/generate-types.js"
@@ -45,6 +48,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "jsdom": "^25.0.1",
+    "terser": "^5.44.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.3",
     "vite": "^7.2.2",

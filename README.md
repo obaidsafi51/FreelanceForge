@@ -4,7 +4,26 @@ A decentralized application (dApp) built on the Polkadot blockchain that aggrega
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 🏆 For Judges & Quick Evaluation (One Command!)
+
+**Prerequisites**: Only [Docker](https://docs.docker.com/get-docker/) required
+
+```bash
+# Clone and deploy in 30 seconds
+git clone <repository-url>
+cd freelanceforge
+./deploy-local.sh
+```
+
+✅ **That's it!** Access at `http://localhost:3000`
+
+📋 **Verify everything works**: `./verify-deployment.sh`
+
+📖 **Detailed judge instructions**: See `README_JUDGES.md`
+
+### 🛠️ Development Setup
+
+**Prerequisites**:
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
 - [Node.js](https://nodejs.org/) (v18 or higher)
@@ -12,8 +31,6 @@ A decentralized application (dApp) built on the Polkadot blockchain that aggrega
 - [psvm](https://github.com/paritytech/psvm) - Polkadot SDK Version Manager (`cargo install psvm`)
 - System dependencies: `pkg-config`, `libssl-dev` (Ubuntu/Debian) or `openssl-devel` (Fedora)
 - [Polkadot.js Extension](https://polkadot.js.org/extension/) for wallet integration
-
-### Development Setup
 
 1. **Clone the repository**
 

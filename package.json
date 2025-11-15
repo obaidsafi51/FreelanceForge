@@ -8,13 +8,22 @@
     "dev:substrate": "cd substrate-node && cargo run -- --dev --ws-external --rpc-cors all",
     "build": "docker-compose build",
     "build:frontend": "cd frontend && npm run build",
+    "build:frontend:production": "cd frontend && npm run build:production",
     "build:substrate": "cd substrate-node && cargo build --release",
+    "build:production": "npm run build:substrate && npm run build:frontend:production",
     "test": "npm run test:frontend && npm run test:substrate",
     "test:frontend": "cd frontend && npm run test",
     "test:substrate": "cd substrate-node && cargo test",
     "clean": "docker-compose down -v && docker system prune -f",
     "setup": "npm run install:frontend && npm run build:substrate",
-    "install:frontend": "cd frontend && npm install"
+    "install:frontend": "cd frontend && npm install",
+    "deploy:production": "npm run build:production && docker-compose -f docker-compose.prod.yml up --build -d",
+    "deploy:stop": "docker-compose -f docker-compose.prod.yml down",
+    "test:production": "cd scripts && npm install && npm run test:production",
+    "test:deployment": "npm run test:production",
+    "deploy:judges": "./deploy-local.sh",
+    "deploy:local": "./deploy-local.sh",
+    "verify": "./verify-deployment.sh"
   },
   "keywords": [
     "polkadot",

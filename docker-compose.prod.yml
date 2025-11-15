@@ -1,0 +1,93 @@
+version: "3.8"
+
+services:
+  # Substrate node for production (connects to Paseo testnet)
+  substrate-node:
+    build:
+      context: ./substrate-node
+      dockerfile: Dockerfile
+      target: production
+    container_name: freelanceforge-substrate-prod
+    ports:
+      - "9944:9944"
+      - "9933:9933"
+      - "30333:30333"
+    command:
+      [
+        "./target/release/minimal-template-node",
+        "--chain",
+        "dev",
+        "--ws-external",
+        "--rpc-external",
+        "--rpc-cors",
+        "all",
+        "--rpc-methods",
+        "unsafe",
+        "--name",
+        "FreelanceForge-Production",
+        "--telemetry-url",
+        "wss://telemetry.polkadot.io/submit/ 0",
+      ]
+    environment:
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    volumes:
+      - substrate_data:/data
+    networks:
+      - freelanceforge-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9933/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend production build
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - NODE_ENV=production
+    container_name: freelanceforge-frontend-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      substrate-node:
+        condition: service_healthy
+    networks:
+      - freelanceforge-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Monitoring and logging (optional)
+  watchtower:
+    image: containrrr/watchtower
+    container_name: freelanceforge-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 300 --cleanup
+    restart: unless-stopped
+    networks:
+      - freelanceforge-network
+
+volumes:
+  substrate_data:
+    driver: local
+
+networks:
+  freelanceforge-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

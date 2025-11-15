@@ -1,6 +1,7 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import { performanceMonitor, PerformanceMetrics } from './performance';
+import { captureError, captureMessage, ErrorCategory, ErrorSeverity, addBreadcrumb } from './errorMonitoring';
 import type { Credential } from '../types';
 
 // API Error types
@@ -133,6 +134,7 @@ class FreelanceForgeAPI {
 
         try {
           console.log(`Attempting to connect to ${endpoint}...`);
+          addBreadcrumb(`Connecting to ${endpoint}`, 'api');
           
           const provider = new WsProvider(endpoint, 5000); // 5 second timeout
           const api = await ApiPromise.create({ provider });
@@ -143,17 +145,34 @@ class FreelanceForgeAPI {
           this.currentEndpointIndex = endpointIndex;
           
           console.log(`Successfully connected to ${endpoint}`);
+          captureMessage(`Successfully connected to ${endpoint}`, ErrorCategory.NETWORK, ErrorSeverity.LOW);
+          addBreadcrumb(`Connected to ${endpoint}`, 'api');
           return api;
         } catch (error) {
           console.warn(`Failed to connect to ${endpoint}:`, error);
+          captureError(
+            error as Error,
+            ErrorCategory.NETWORK,
+            ErrorSeverity.MEDIUM,
+            { endpoint, attemptIndex: i }
+          );
           continue;
         }
       }
 
-      throw new ApiError(
+      const connectionError = new ApiError(
         ApiErrorType.CONNECTION_FAILED,
         'Failed to connect to any RPC endpoint'
       );
+      
+      captureError(
+        connectionError,
+        ErrorCategory.NETWORK,
+        ErrorSeverity.CRITICAL,
+        { endpoints: this.config.endpoints, network: this.config.network }
+      );
+      
+      throw connectionError;
     } finally {
       this.isConnecting = false;
     }

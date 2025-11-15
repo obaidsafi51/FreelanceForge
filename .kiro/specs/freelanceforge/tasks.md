@@ -204,7 +204,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7_
   - _Dependencies: Task 9 (dashboard implementation), Task 10 (trust score calculation)_
 
-- [ ] 16. Deploy to Paseo testnet and configure production environment
+- [x] 16. Deploy to Paseo testnet and configure production environment
 
   - Deploy Substrate pallet to Paseo testnet using appropriate deployment tools
   - Configure frontend environment variables for Paseo RPC endpoints
