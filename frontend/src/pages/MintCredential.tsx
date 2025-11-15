@@ -7,19 +7,28 @@ import {
   Paper,
   Alert,
   Snackbar,
+  Tabs,
+  Tab,
+  Divider,
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  CloudUpload as ImportIcon,
+} from '@mui/icons-material';
 import { WalletConnection } from '../components/WalletConnection';
 import { CredentialForm } from '../components/CredentialForm';
 import { TransactionPreview } from '../components/TransactionPreview';
+import { MockDataImport } from '../components/MockDataImport';
 import { useWallet } from '../contexts/WalletContext';
 import { useMintCredential } from '../hooks/useCredentials';
 import type { CredentialMetadata } from '../utils/api';
+import type { BatchMintResult } from '../components/BatchMintProgress';
 
 export function MintCredential() {
   const { isConnected, selectedAccount } = useWallet();
   const mintCredentialMutation = useMintCredential();
 
+  const [activeTab, setActiveTab] = useState(0);
   const [showTransactionPreview, setShowTransactionPreview] = useState(false);
   const [pendingCredential, setPendingCredential] = useState<CredentialMetadata | null>(null);
   const [, setPendingProofFile] = useState<File | null>(null);
@@ -96,12 +105,25 @@ export function MintCredential() {
     setErrorMessage(null);
   };
 
+  const handleBatchMintComplete = (results: BatchMintResult[]) => {
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    if (failed === 0) {
+      setSuccessMessage(`Successfully minted all ${successful} credentials!`);
+    } else if (successful === 0) {
+      setErrorMessage(`Failed to mint all ${failed} credentials`);
+    } else {
+      setSuccessMessage(`Batch complete: ${successful} successful, ${failed} failed`);
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box mb={4}>
         <Typography variant="h3" component="h1" gutterBottom>
           <AddIcon sx={{ mr: 2, verticalAlign: 'middle' }} />
-          Mint Credential
+          Mint Credentials
         </Typography>
         <Typography variant="h6" color="text.secondary">
           Create verifiable NFT credentials for your professional achievements
@@ -115,18 +137,47 @@ export function MintCredential() {
           Please connect your wallet to mint credentials.
         </Alert>
       ) : (
-        <Paper sx={{ p: 4, mt: 3 }}>
-          <Typography variant="h5" gutterBottom>
-            Create New Credential
-          </Typography>
-          <Typography color="text.secondary" paragraph>
-            Fill out the form below to mint a new credential NFT. Your credential will be stored immutably on the blockchain.
-          </Typography>
+        <Paper sx={{ mt: 3 }}>
+          {/* Minting Method Tabs */}
+          <Tabs
+            value={activeTab}
+            onChange={(_, newValue) => setActiveTab(newValue)}
+            variant="fullWidth"
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab
+              icon={<AddIcon />}
+              label="Single Credential"
+              iconPosition="start"
+            />
+            <Tab
+              icon={<ImportIcon />}
+              label="Import & Batch Mint"
+              iconPosition="start"
+            />
+          </Tabs>
 
-          <CredentialForm
-            onSubmit={handleFormSubmit}
-            isSubmitting={mintCredentialMutation.isPending}
-          />
+          <Box sx={{ p: 4 }}>
+            {activeTab === 0 && (
+              <>
+                <Typography variant="h5" gutterBottom>
+                  Create New Credential
+                </Typography>
+                <Typography color="text.secondary" paragraph>
+                  Fill out the form below to mint a new credential NFT. Your credential will be stored immutably on the blockchain.
+                </Typography>
+
+                <CredentialForm
+                  onSubmit={handleFormSubmit}
+                  isSubmitting={mintCredentialMutation.isPending}
+                />
+              </>
+            )}
+
+            {activeTab === 1 && (
+              <MockDataImport onComplete={handleBatchMintComplete} />
+            )}
+          </Box>
         </Paper>
       )}
 
