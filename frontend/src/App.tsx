@@ -4,6 +4,8 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Box } from '@mui/material';
 import { WalletProvider } from './contexts/WalletContext';
 import { QueryProvider } from './providers/QueryProvider';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { NotificationProvider } from './components/NotificationSystem';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './pages/Dashboard';
 import { MintCredential } from './pages/MintCredential';
@@ -51,24 +53,30 @@ const theme = createTheme({
 
 function App() {
   return (
-    <QueryProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <WalletProvider>
-          <Router>
-            <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-              <Navigation />
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/mint" element={<MintCredential />} />
-                <Route path="/export" element={<ExportPortfolio />} />
-                <Route path="/portfolio/:walletAddress" element={<PublicPortfolio />} />
-              </Routes>
-            </Box>
-          </Router>
-        </WalletProvider>
-      </ThemeProvider>
-    </QueryProvider>
+    <ErrorBoundary>
+      <NotificationProvider>
+        <QueryProvider>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <WalletProvider>
+              <Router>
+                <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+                  <Navigation />
+                  <ErrorBoundary>
+                    <Routes>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/mint" element={<MintCredential />} />
+                      <Route path="/export" element={<ExportPortfolio />} />
+                      <Route path="/portfolio/:walletAddress" element={<PublicPortfolio />} />
+                    </Routes>
+                  </ErrorBoundary>
+                </Box>
+              </Router>
+            </WalletProvider>
+          </ThemeProvider>
+        </QueryProvider>
+      </NotificationProvider>
+    </ErrorBoundary>
   );
 }
 

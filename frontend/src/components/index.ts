@@ -16,3 +16,19 @@ export { PortfolioExporter } from './PortfolioExporter';
 export { ExportPreviewModal } from './ExportPreviewModal';
 export { PortfolioSharing } from './PortfolioSharing';
 export { VisibilityToggle } from './VisibilityToggle';
+// Error handling and user feedback components
+export { ErrorBoundary, withErrorBoundary } from './ErrorBoundary';
+export { NotificationProvider, useNotifications, NotificationTemplates } from './NotificationSystem';
+export { 
+  LoadingSpinner,
+  CredentialCardSkeleton,
+  CredentialTimelineSkeleton,
+  TrustScoreWidgetSkeleton,
+  DashboardSkeleton,
+  BatchProgress,
+  WalletConnectionLoading,
+  BlockchainOperationLoading,
+  EmptyState,
+  ShimmerBox,
+  FormLoadingOverlay
+} from './LoadingStates';

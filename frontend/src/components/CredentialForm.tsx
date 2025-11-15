@@ -36,6 +36,9 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { FormLoadingOverlay } from './LoadingStates';
+import { useFormErrorHandler } from '../hooks/useErrorHandler';
+import { useNotifications, NotificationTemplates } from './NotificationSystem';
 import type { CredentialMetadata } from '../utils/api';
 
 // Form data interface
@@ -126,6 +129,10 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
     const [showPreview, setShowPreview] = useState(false);
     const [dragOver, setDragOver] = useState(false);
 
+    // Error handling hooks
+    const { handleValidationError } = useFormErrorHandler();
+    const { addNotification } = useNotifications();
+
     const {
         control,
         handleSubmit,
@@ -154,7 +161,9 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
 
         // Validate file size (5MB limit)
         if (file.size > 5 * 1024 * 1024) {
-            setProofFileError('File size must be 5MB or less');
+            const errorMessage = 'File size must be 5MB or less';
+            setProofFileError(errorMessage);
+            addNotification(NotificationTemplates.fileUploadError(errorMessage));
             return;
         }
 
@@ -170,12 +179,15 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
         ];
 
         if (!allowedTypes.includes(file.type)) {
-            setProofFileError('Unsupported file type. Please upload PDF, image, or document files.');
+            const errorMessage = 'Unsupported file type. Please upload PDF, image, or document files.';
+            setProofFileError(errorMessage);
+            addNotification(NotificationTemplates.fileUploadError(errorMessage));
             return;
         }
 
         setProofFile(file);
-    }, []);
+        addNotification(NotificationTemplates.fileUploadSuccess(file.name));
+    }, [addNotification]);
 
     const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -247,6 +259,7 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
             setShowPreview(false);
         } catch (error) {
             console.error('Form submission error:', error);
+            // Error handling is done in the parent component via mutation hooks
         }
     };
 
@@ -332,285 +345,290 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
     );
 
     return (
-        <Box component="form" onSubmit={handleSubmit(onFormSubmit)}>
-            {/* Credential Type Selection */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                    Credential Type
-                </Typography>
-                <Controller
-                    name="credential_type"
-                    control={control}
-                    render={({ field }) => (
-                        <FormControl fullWidth error={!!errors.credential_type}>
-                            <InputLabel>Type</InputLabel>
-                            <Select {...field} label="Type">
-                                {Object.entries(credentialTypes).map(([key, config]) => (
-                                    <MenuItem key={key} value={key}>
-                                        <Box display="flex" alignItems="center">
-                                            <config.icon sx={{ mr: 1, color: config.color }} />
-                                            <Box>
-                                                <Typography variant="body1">{config.label}</Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {config.description}
-                                                </Typography>
+        <FormLoadingOverlay
+            loading={isSubmitting}
+            message="Minting credential on blockchain..."
+        >
+            <Box component="form" onSubmit={handleSubmit(onFormSubmit)}>
+                {/* Credential Type Selection */}
+                <Paper sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                        Credential Type
+                    </Typography>
+                    <Controller
+                        name="credential_type"
+                        control={control}
+                        render={({ field }) => (
+                            <FormControl fullWidth error={!!errors.credential_type}>
+                                <InputLabel>Type</InputLabel>
+                                <Select {...field} label="Type">
+                                    {Object.entries(credentialTypes).map(([key, config]) => (
+                                        <MenuItem key={key} value={key}>
+                                            <Box display="flex" alignItems="center">
+                                                <config.icon sx={{ mr: 1, color: config.color }} />
+                                                <Box>
+                                                    <Typography variant="body1">{config.label}</Typography>
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {config.description}
+                                                    </Typography>
+                                                </Box>
                                             </Box>
-                                        </Box>
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                            {errors.credential_type && (
-                                <Typography variant="caption" color="error" sx={{ mt: 1 }}>
-                                    {errors.credential_type.message}
-                                </Typography>
-                            )}
-                        </FormControl>
-                    )}
-                />
-            </Paper>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                                {errors.credential_type && (
+                                    <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+                                        {errors.credential_type.message}
+                                    </Typography>
+                                )}
+                            </FormControl>
+                        )}
+                    />
+                </Paper>
 
-            {/* Basic Information */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                    Basic Information
-                </Typography>
+                {/* Basic Information */}
+                <Paper sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                        Basic Information
+                    </Typography>
 
-                <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                        <Controller
-                            name="name"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    fullWidth
-                                    label="Credential Name"
-                                    placeholder="e.g., React.js Development, 5-Star Client Review"
-                                    error={!!errors.name}
-                                    helperText={errors.name?.message || `${field.value.length}/100 characters`}
-                                    inputProps={{ maxLength: 100 }}
-                                />
-                            )}
-                        />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                        <Controller
-                            name="description"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    fullWidth
-                                    multiline
-                                    rows={3}
-                                    label="Description"
-                                    placeholder="Provide detailed information about this credential..."
-                                    error={!!errors.description}
-                                    helperText={errors.description?.message || `${field.value.length}/500 characters`}
-                                    inputProps={{ maxLength: 500 }}
-                                />
-                            )}
-                        />
-                    </Grid>
-
-                    <Grid item xs={12} sm={6}>
-                        <Controller
-                            name="issuer"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    fullWidth
-                                    label="Issuer"
-                                    placeholder="e.g., Upwork, LinkedIn, Company Name"
-                                    error={!!errors.issuer}
-                                    helperText={errors.issuer?.message || `${field.value.length}/100 characters`}
-                                    inputProps={{ maxLength: 100 }}
-                                />
-                            )}
-                        />
-                    </Grid>
-
-                    {selectedType.showRating && (
-                        <Grid item xs={12} sm={6}>
+                    <Grid container spacing={2}>
+                        <Grid item xs={12}>
                             <Controller
-                                name="rating"
+                                name="name"
                                 control={control}
                                 render={({ field }) => (
                                     <TextField
                                         {...field}
                                         fullWidth
-                                        type="number"
-                                        label="Rating"
-                                        placeholder="0-5"
-                                        error={!!errors.rating}
-                                        helperText={errors.rating?.message || 'Optional rating (0-5 stars)'}
-                                        inputProps={{ min: 0, max: 5, step: 0.1 }}
-                                        value={field.value || ''}
-                                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                                        label="Credential Name"
+                                        placeholder="e.g., React.js Development, 5-Star Client Review"
+                                        error={!!errors.name}
+                                        helperText={errors.name?.message || `${field.value.length}/100 characters`}
+                                        inputProps={{ maxLength: 100 }}
                                     />
                                 )}
                             />
                         </Grid>
-                    )}
-                </Grid>
-            </Paper>
 
-            {/* Proof Document Upload */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                    Proof Document (Optional)
-                </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                    Upload supporting documents for verification. Only the document hash will be stored on-chain.
-                </Typography>
+                        <Grid item xs={12}>
+                            <Controller
+                                name="description"
+                                control={control}
+                                render={({ field }) => (
+                                    <TextField
+                                        {...field}
+                                        fullWidth
+                                        multiline
+                                        rows={3}
+                                        label="Description"
+                                        placeholder="Provide detailed information about this credential..."
+                                        error={!!errors.description}
+                                        helperText={errors.description?.message || `${field.value.length}/500 characters`}
+                                        inputProps={{ maxLength: 500 }}
+                                    />
+                                )}
+                            />
+                        </Grid>
 
-                {!proofFile ? (
-                    <Box
-                        sx={{
-                            border: '2px dashed',
-                            borderColor: dragOver ? 'primary.main' : 'grey.300',
-                            borderRadius: 1,
-                            p: 3,
-                            textAlign: 'center',
-                            bgcolor: dragOver ? 'action.hover' : 'background.paper',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                        }}
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onClick={() => document.getElementById('proof-file-input')?.click()}
-                    >
-                        <UploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-                        <Typography variant="body1" gutterBottom>
-                            Drop files here or click to browse
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            Supports PDF, images, and documents (max 5MB)
-                        </Typography>
-                        <input
-                            id="proof-file-input"
-                            type="file"
-                            hidden
-                            onChange={handleFileInputChange}
-                            accept=".pdf,.jpg,.jpeg,.png,.gif,.txt,.doc,.docx"
-                        />
-                    </Box>
-                ) : (
-                    <Box
-                        sx={{
-                            border: '1px solid',
-                            borderColor: 'success.main',
-                            borderRadius: 1,
-                            p: 2,
-                            bgcolor: 'success.50',
-                        }}
-                    >
-                        <Box display="flex" alignItems="center" justifyContent="space-between">
-                            <Box>
-                                <Typography variant="body2" fontWeight="medium">
-                                    {proofFile.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {(proofFile.size / 1024 / 1024).toFixed(2)} MB
-                                </Typography>
-                            </Box>
-                            <Tooltip title="Remove file">
-                                <IconButton onClick={removeProofFile} size="small">
-                                    <DeleteIcon />
-                                </IconButton>
-                            </Tooltip>
-                        </Box>
-                    </Box>
-                )}
+                        <Grid item xs={12} sm={6}>
+                            <Controller
+                                name="issuer"
+                                control={control}
+                                render={({ field }) => (
+                                    <TextField
+                                        {...field}
+                                        fullWidth
+                                        label="Issuer"
+                                        placeholder="e.g., Upwork, LinkedIn, Company Name"
+                                        error={!!errors.issuer}
+                                        helperText={errors.issuer?.message || `${field.value.length}/100 characters`}
+                                        inputProps={{ maxLength: 100 }}
+                                    />
+                                )}
+                            />
+                        </Grid>
 
-                {proofFileError && (
-                    <Alert severity="error" sx={{ mt: 2 }}>
-                        {proofFileError}
-                    </Alert>
-                )}
-            </Paper>
-
-            {/* Privacy Settings */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                    Privacy Settings
-                </Typography>
-
-                <Controller
-                    name="visibility"
-                    control={control}
-                    render={({ field }) => (
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={field.value === 'public'}
-                                    onChange={(e) => field.onChange(e.target.checked ? 'public' : 'private')}
-                                    color="primary"
-                                />
-                            }
-                            label={
-                                <Box display="flex" alignItems="center">
-                                    {field.value === 'public' ? (
-                                        <VisibilityIcon sx={{ mr: 1, color: 'success.main' }} />
-                                    ) : (
-                                        <VisibilityOffIcon sx={{ mr: 1, color: 'warning.main' }} />
+                        {selectedType.showRating && (
+                            <Grid item xs={12} sm={6}>
+                                <Controller
+                                    name="rating"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <TextField
+                                            {...field}
+                                            fullWidth
+                                            type="number"
+                                            label="Rating"
+                                            placeholder="0-5"
+                                            error={!!errors.rating}
+                                            helperText={errors.rating?.message || 'Optional rating (0-5 stars)'}
+                                            inputProps={{ min: 0, max: 5, step: 0.1 }}
+                                            value={field.value || ''}
+                                            onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                                        />
                                     )}
-                                    <Box>
-                                        <Typography variant="body2">
-                                            {field.value === 'public' ? 'Public' : 'Private'}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {field.value === 'public'
-                                                ? 'Visible in shared portfolios and exports'
-                                                : 'Only visible to you'
-                                            }
-                                        </Typography>
-                                    </Box>
+                                />
+                            </Grid>
+                        )}
+                    </Grid>
+                </Paper>
+
+                {/* Proof Document Upload */}
+                <Paper sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                        Proof Document (Optional)
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                        Upload supporting documents for verification. Only the document hash will be stored on-chain.
+                    </Typography>
+
+                    {!proofFile ? (
+                        <Box
+                            sx={{
+                                border: '2px dashed',
+                                borderColor: dragOver ? 'primary.main' : 'grey.300',
+                                borderRadius: 1,
+                                p: 3,
+                                textAlign: 'center',
+                                bgcolor: dragOver ? 'action.hover' : 'background.paper',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onClick={() => document.getElementById('proof-file-input')?.click()}
+                        >
+                            <UploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                            <Typography variant="body1" gutterBottom>
+                                Drop files here or click to browse
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Supports PDF, images, and documents (max 5MB)
+                            </Typography>
+                            <input
+                                id="proof-file-input"
+                                type="file"
+                                hidden
+                                onChange={handleFileInputChange}
+                                accept=".pdf,.jpg,.jpeg,.png,.gif,.txt,.doc,.docx"
+                            />
+                        </Box>
+                    ) : (
+                        <Box
+                            sx={{
+                                border: '1px solid',
+                                borderColor: 'success.main',
+                                borderRadius: 1,
+                                p: 2,
+                                bgcolor: 'success.50',
+                            }}
+                        >
+                            <Box display="flex" alignItems="center" justifyContent="space-between">
+                                <Box>
+                                    <Typography variant="body2" fontWeight="medium">
+                                        {proofFile.name}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {(proofFile.size / 1024 / 1024).toFixed(2)} MB
+                                    </Typography>
                                 </Box>
-                            }
-                        />
+                                <Tooltip title="Remove file">
+                                    <IconButton onClick={removeProofFile} size="small">
+                                        <DeleteIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
+                        </Box>
                     )}
-                />
-            </Paper>
 
-            {/* Preview Toggle */}
-            <Box display="flex" justifyContent="center" mb={2}>
-                <Button
-                    variant="outlined"
-                    startIcon={<PreviewIcon />}
-                    onClick={() => setShowPreview(!showPreview)}
-                    disabled={!isValid}
-                >
-                    {showPreview ? 'Hide Preview' : 'Show Preview'}
-                </Button>
+                    {proofFileError && (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                            {proofFileError}
+                        </Alert>
+                    )}
+                </Paper>
+
+                {/* Privacy Settings */}
+                <Paper sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" gutterBottom>
+                        Privacy Settings
+                    </Typography>
+
+                    <Controller
+                        name="visibility"
+                        control={control}
+                        render={({ field }) => (
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={field.value === 'public'}
+                                        onChange={(e) => field.onChange(e.target.checked ? 'public' : 'private')}
+                                        color="primary"
+                                    />
+                                }
+                                label={
+                                    <Box display="flex" alignItems="center">
+                                        {field.value === 'public' ? (
+                                            <VisibilityIcon sx={{ mr: 1, color: 'success.main' }} />
+                                        ) : (
+                                            <VisibilityOffIcon sx={{ mr: 1, color: 'warning.main' }} />
+                                        )}
+                                        <Box>
+                                            <Typography variant="body2">
+                                                {field.value === 'public' ? 'Public' : 'Private'}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {field.value === 'public'
+                                                    ? 'Visible in shared portfolios and exports'
+                                                    : 'Only visible to you'
+                                                }
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                }
+                            />
+                        )}
+                    />
+                </Paper>
+
+                {/* Preview Toggle */}
+                <Box display="flex" justifyContent="center" mb={2}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<PreviewIcon />}
+                        onClick={() => setShowPreview(!showPreview)}
+                        disabled={!isValid}
+                    >
+                        {showPreview ? 'Hide Preview' : 'Show Preview'}
+                    </Button>
+                </Box>
+
+                {/* Preview */}
+                {showPreview && isValid && <PreviewCard />}
+
+                <Divider sx={{ my: 3 }} />
+
+                {/* Action Buttons */}
+                <Box display="flex" gap={2} justifyContent="flex-end">
+                    <Button
+                        variant="outlined"
+                        onClick={handleCancel}
+                        disabled={isSubmitting}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={!isValid || isSubmitting}
+                        startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
+                    >
+                        {isSubmitting ? 'Minting...' : 'Mint Credential'}
+                    </Button>
+                </Box>
             </Box>
-
-            {/* Preview */}
-            {showPreview && isValid && <PreviewCard />}
-
-            <Divider sx={{ my: 3 }} />
-
-            {/* Action Buttons */}
-            <Box display="flex" gap={2} justifyContent="flex-end">
-                <Button
-                    variant="outlined"
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                >
-                    Cancel
-                </Button>
-                <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={!isValid || isSubmitting}
-                    startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
-                >
-                    {isSubmitting ? 'Minting...' : 'Mint Credential'}
-                </Button>
-            </Box>
-        </Box>
+        </FormLoadingOverlay>
     );
 }

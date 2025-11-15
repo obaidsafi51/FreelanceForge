@@ -13,6 +13,8 @@ import {
   ApiError,
   ApiErrorType
 } from '../utils/api';
+import { useNotifications, NotificationTemplates } from '../components/NotificationSystem';
+import { useErrorHandler } from './useErrorHandler';
 import type { Credential } from '../types';
 
 // Query keys for consistent cache management
@@ -63,19 +65,35 @@ export function useCredentials(
 // Mutation hook for minting credentials
 export function useMintCredential() {
   const queryClient = useQueryClient();
+  const { addNotification } = useNotifications();
+  const { handleTransactionError } = useErrorHandler();
 
   return useMutation({
     mutationFn: async (params: { accountAddress: string; credentialData: CredentialMetadata }) => {
-      return mintCredential(params.accountAddress, params.credentialData);
+      // Show transaction submitted notification
+      addNotification(NotificationTemplates.transactionSubmitted('mint'));
+      
+      const result = await mintCredential(params.accountAddress, params.credentialData);
+      
+      // Show transaction confirmed notification
+      addNotification(NotificationTemplates.transactionConfirmed('Credential minting'));
+      
+      return result;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
+      // Show success notification
+      addNotification(NotificationTemplates.credentialMinted(variables.credentialData.name));
+      
       // Invalidate and refetch credentials to get the real data
       queryClient.invalidateQueries({ 
         queryKey: credentialQueryKeys.list(variables.accountAddress) 
       });
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       console.error('Mint credential failed:', error);
+      
+      // Use transaction error handler with network context
+      handleTransactionError(error, 'paseo'); // TODO: Get network from context
     },
   });
 }
@@ -83,20 +101,32 @@ export function useMintCredential() {
 // Mutation hook for updating credentials
 export function useUpdateCredential() {
   const queryClient = useQueryClient();
+  const { addNotification } = useNotifications();
+  const { handleTransactionError } = useErrorHandler();
 
   return useMutation({
     mutationFn: async (params: { 
       accountAddress: string; 
       credentialId: string; 
-      updates: { visibility?: 'public' | 'private'; proof_hash?: string } 
+      updates: { visibility?: 'public' | 'private'; proof_hash?: string };
+      credentialName?: string; // For notification purposes
     }) => {
-      return updateCredential(params.accountAddress, params.credentialId, params.updates);
+      const result = await updateCredential(params.accountAddress, params.credentialId, params.updates);
+      return { ...result, credentialName: params.credentialName };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
+      // Show success notification
+      const credentialName = result.credentialName || 'Credential';
+      addNotification(NotificationTemplates.credentialUpdated(credentialName));
+      
       // Invalidate credentials list
       queryClient.invalidateQueries({ 
         queryKey: credentialQueryKeys.list(variables.accountAddress) 
       });
+    },
+    onError: (error) => {
+      console.error('Update credential failed:', error);
+      handleTransactionError(error, 'paseo');
     },
   });
 }
@@ -104,16 +134,31 @@ export function useUpdateCredential() {
 // Mutation hook for deleting credentials
 export function useDeleteCredential() {
   const queryClient = useQueryClient();
+  const { addNotification } = useNotifications();
+  const { handleTransactionError } = useErrorHandler();
 
   return useMutation({
-    mutationFn: async (params: { accountAddress: string; credentialId: string }) => {
-      return deleteCredential(params.accountAddress, params.credentialId);
+    mutationFn: async (params: { 
+      accountAddress: string; 
+      credentialId: string;
+      credentialName?: string; // For notification purposes
+    }) => {
+      const result = await deleteCredential(params.accountAddress, params.credentialId);
+      return { ...result, credentialName: params.credentialName };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
+      // Show success notification
+      const credentialName = result.credentialName || 'Credential';
+      addNotification(NotificationTemplates.credentialDeleted(credentialName));
+      
       // Invalidate credentials list
       queryClient.invalidateQueries({ 
         queryKey: credentialQueryKeys.list(variables.accountAddress) 
       });
+    },
+    onError: (error) => {
+      console.error('Delete credential failed:', error);
+      handleTransactionError(error, 'paseo');
     },
   });
 }
