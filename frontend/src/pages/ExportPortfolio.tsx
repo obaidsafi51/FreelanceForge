@@ -3,15 +3,14 @@ import {
   Container,
   Typography,
   Box,
-  Paper,
   Alert,
 } from '@mui/material';
 import { FileDownload as ExportIcon } from '@mui/icons-material';
-import { WalletConnection } from '../components/WalletConnection';
+import { WalletConnection, PortfolioExporter } from '../components';
 import { useWallet } from '../contexts/WalletContext';
 
 export function ExportPortfolio() {
-  const { isConnected } = useWallet();
+  const { isConnected, selectedAccount } = useWallet();
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -31,28 +30,14 @@ export function ExportPortfolio() {
         <Alert severity="info" sx={{ mt: 3 }}>
           Please connect your wallet to export your portfolio.
         </Alert>
+      ) : selectedAccount ? (
+        <Box mt={3}>
+          <PortfolioExporter walletAddress={selectedAccount.address} />
+        </Box>
       ) : (
-        <Paper sx={{ p: 4, mt: 3 }}>
-          <Typography variant="h5" gutterBottom>
-            Portfolio Export Options
-          </Typography>
-          <Typography color="text.secondary" paragraph>
-            Export your credentials as JSON or generate shareable links and QR codes for your portfolio.
-          </Typography>
-          
-          <Box 
-            display="flex" 
-            alignItems="center" 
-            justifyContent="center" 
-            minHeight={400}
-            bgcolor="grey.50"
-            borderRadius={1}
-          >
-            <Typography variant="body1" color="text.secondary">
-              Export functionality will be implemented in a future task
-            </Typography>
-          </Box>
-        </Paper>
+        <Alert severity="warning" sx={{ mt: 3 }}>
+          Please select an account to export your portfolio.
+        </Alert>
       )}
     </Container>
   );
