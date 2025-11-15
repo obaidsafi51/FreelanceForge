@@ -26,7 +26,7 @@ export const credentialQueryKeys = {
   detail: (id: string) => [...credentialQueryKeys.details(), id] as const,
 };
 
-// Hook for fetching user credentials with caching
+// Hook for fetching user credentials with optimized caching
 export function useCredentials(
   accountAddress: string | null,
   options?: Omit<UseQueryOptions<Credential[], ApiError>, 'queryKey' | 'queryFn'>
@@ -40,8 +40,11 @@ export function useCredentials(
       return getCredentials(accountAddress);
     },
     enabled: !!accountAddress,
-    staleTime: 60 * 1000, // 60 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes - credentials don't change frequently
+    gcTime: 15 * 60 * 1000, // 15 minutes - keep in cache longer
+    refetchInterval: 5 * 60 * 1000, // Background refetch every 5 minutes
+    refetchIntervalInBackground: true, // Continue refetching in background
+    refetchOnWindowFocus: false, // Disable focus refetch for better performance
     retry: (failureCount, error) => {
       if (error instanceof ApiError) {
         const nonRetryableErrors: ApiErrorType[] = [
@@ -58,6 +61,8 @@ export function useCredentials(
       return failureCount < 3;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    // Optimistic updates for better perceived performance
+    placeholderData: (previousData) => previousData,
     ...options,
   });
 }

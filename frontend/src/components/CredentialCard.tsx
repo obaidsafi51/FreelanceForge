@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
     Card,
     CardContent,
@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { format, formatDistanceToNow } from 'date-fns';
 import { VisibilityToggle } from './VisibilityToggle';
+import { usePerformanceMonitor } from '../utils/performance';
 import type { Credential } from '../types';
 
 interface CredentialCardProps {
@@ -34,7 +35,8 @@ interface CredentialCardProps {
     showVisibilityToggle?: boolean;
 }
 
-export function CredentialCard({
+// Memoized credential card component for performance
+export const CredentialCard = React.memo(function CredentialCard({
     credential,
     showTimeline = false,
     walletAddress,
@@ -43,54 +45,73 @@ export function CredentialCard({
     const [expanded, setExpanded] = useState(false);
     const theme = useTheme();
 
-    const handleExpandClick = () => {
+    // Performance monitoring
+    usePerformanceMonitor('CredentialCard', [credential.id, expanded]);
+
+    const handleExpandClick = useCallback(() => {
         setExpanded(!expanded);
-    };
+    }, [expanded]);
 
-    // Get credential type configuration
-    const getCredentialConfig = (type: string) => {
-        switch (type) {
-            case 'skill':
-                return {
-                    icon: <SkillIcon />,
-                    color: theme.palette.primary.main,
-                    bgColor: alpha(theme.palette.primary.main, 0.1),
-                    label: 'Skill',
-                };
-            case 'review':
-                return {
-                    icon: <ReviewIcon />,
-                    color: theme.palette.success.main,
-                    bgColor: alpha(theme.palette.success.main, 0.1),
-                    label: 'Review',
-                };
-            case 'payment':
-                return {
-                    icon: <PaymentIcon />,
-                    color: theme.palette.warning.main,
-                    bgColor: alpha(theme.palette.warning.main, 0.1),
-                    label: 'Payment',
-                };
-            case 'certification':
-                return {
-                    icon: <CertificationIcon />,
-                    color: theme.palette.secondary.main,
-                    bgColor: alpha(theme.palette.secondary.main, 0.1),
-                    label: 'Certification',
-                };
-            default:
-                return {
-                    icon: <SkillIcon />,
-                    color: theme.palette.grey[500],
-                    bgColor: alpha(theme.palette.grey[500], 0.1),
-                    label: 'Unknown',
-                };
-        }
-    };
+    // Memoized credential type configuration
+    const config = useMemo(() => {
+        const getCredentialConfig = (type: string) => {
+            switch (type) {
+                case 'skill':
+                    return {
+                        icon: <SkillIcon />,
+                        color: theme.palette.primary.main,
+                        bgColor: alpha(theme.palette.primary.main, 0.1),
+                        label: 'Skill',
+                    };
+                case 'review':
+                    return {
+                        icon: <ReviewIcon />,
+                        color: theme.palette.success.main,
+                        bgColor: alpha(theme.palette.success.main, 0.1),
+                        label: 'Review',
+                    };
+                case 'payment':
+                    return {
+                        icon: <PaymentIcon />,
+                        color: theme.palette.warning.main,
+                        bgColor: alpha(theme.palette.warning.main, 0.1),
+                        label: 'Payment',
+                    };
+                case 'certification':
+                    return {
+                        icon: <CertificationIcon />,
+                        color: theme.palette.secondary.main,
+                        bgColor: alpha(theme.palette.secondary.main, 0.1),
+                        label: 'Certification',
+                    };
+                default:
+                    return {
+                        icon: <SkillIcon />,
+                        color: theme.palette.grey[500],
+                        bgColor: alpha(theme.palette.grey[500], 0.1),
+                        label: 'Unknown',
+                    };
+            }
+        };
+        return getCredentialConfig(credential.credential_type);
+    }, [credential.credential_type, theme]);
 
-    const config = getCredentialConfig(credential.credential_type);
-    const credentialDate = new Date(credential.timestamp);
-    const isRecent = Date.now() - credentialDate.getTime() < 7 * 24 * 60 * 60 * 1000; // 7 days
+    // Memoized date calculations
+    const { credentialDate, isRecent, formattedDate, relativeDate } = useMemo(() => {
+        const date = new Date(credential.timestamp);
+        const recent = Date.now() - date.getTime() < 7 * 24 * 60 * 60 * 1000; // 7 days
+        return {
+            credentialDate: date,
+            isRecent: recent,
+            formattedDate: format(date, 'PPP'),
+            relativeDate: formatDistanceToNow(date, { addSuffix: true }),
+        };
+    }, [credential.timestamp]);
+
+    // Memoized description truncation check
+    const shouldShowExpandButton = useMemo(() => {
+        return credential.description.length > 100;
+    }, [credential.description.length]);
 
     return (
         <Box position="relative">
@@ -216,7 +237,7 @@ export function CredentialCard({
                                 )}
 
                                 <Typography variant="caption" color="text.secondary">
-                                    {formatDistanceToNow(credentialDate, { addSuffix: true })}
+                                    {relativeDate}
                                 </Typography>
                             </Stack>
 
@@ -237,7 +258,7 @@ export function CredentialCard({
                             </Typography>
 
                             {/* Expand button */}
-                            {credential.description.length > 100 && (
+                            {shouldShowExpandButton && (
                                 <Box display="flex" justifyContent="center" mt={1}>
                                     <IconButton
                                         onClick={handleExpandClick}
@@ -279,7 +300,7 @@ export function CredentialCard({
                                         Created:
                                     </Typography>
                                     <Typography variant="body2">
-                                        {format(credentialDate, 'PPP')}
+                                        {formattedDate}
                                     </Typography>
                                 </Box>
                                 <Box display="flex" justifyContent="space-between">
@@ -313,4 +334,4 @@ export function CredentialCard({
             </Card>
         </Box>
     );
-}
+});
