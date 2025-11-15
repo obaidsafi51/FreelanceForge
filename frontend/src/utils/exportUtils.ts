@@ -105,8 +105,13 @@ export function generateExportStats(credentials: Credential[]): ExportStats {
 export async function generatePortfolioExport(
   walletAddress: string,
   credentials: Credential[],
-  trustScore: TrustScore
+  trustScore: TrustScore,
+  publicOnly: boolean = false
 ): Promise<PortfolioExport> {
+  // Filter credentials based on publicOnly flag
+  const exportCredentials = publicOnly 
+    ? credentials.filter(c => c.visibility === 'public')
+    : credentials;
   // Get network information
   let networkInfo;
   try {
@@ -126,19 +131,19 @@ export async function generatePortfolioExport(
   const { explorer_base, account_url } = generateExplorerUrls(network, walletAddress);
   
   // Generate credential transaction data
-  const credentialTransactions = generateCredentialTransactions(credentials, network);
+  const credentialTransactions = generateCredentialTransactions(exportCredentials, network);
   
   // Create export data
   const exportData: PortfolioExport = {
     wallet_address: walletAddress,
     export_timestamp: new Date().toISOString(),
     trust_score: trustScore,
-    credentials: credentials,
+    credentials: exportCredentials,
     blockchain_verification: {
       network,
       explorer_url: explorer_base,
       account_url,
-      total_credentials: credentials.length,
+      total_credentials: exportCredentials.length,
       credential_transactions: credentialTransactions,
     },
     metadata: {

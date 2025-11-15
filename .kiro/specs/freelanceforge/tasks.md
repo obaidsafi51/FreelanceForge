@@ -169,7 +169,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 6.1, 6.2 (blockchain verification URLs), 6.6_
   - _Dependencies: Task 9 (dashboard with credentials), Task 10 (trust score calculation)_
 
-- [ ] 13. Implement portfolio sharing and QR code generation
+- [x] 13. Implement portfolio sharing and QR code generation
 
   - Create public portfolio link generation using wallet address as parameter
   - Build public portfolio view component displaying read-only credential timeline

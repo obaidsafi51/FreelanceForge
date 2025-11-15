@@ -28,13 +28,21 @@ interface CredentialTimelineProps {
     credentials: Credential[];
     loading: boolean;
     error?: string | null;
+    walletAddress?: string;
+    showVisibilityToggle?: boolean;
 }
 
 type SortField = 'date' | 'type' | 'rating' | 'name';
 type SortOrder = 'asc' | 'desc';
 type FilterType = 'all' | 'skill' | 'review' | 'payment' | 'certification';
 
-export function CredentialTimeline({ credentials, loading, error }: CredentialTimelineProps) {
+export function CredentialTimeline({
+    credentials,
+    loading,
+    error,
+    walletAddress,
+    showVisibilityToggle = false
+}: CredentialTimelineProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -260,6 +268,8 @@ export function CredentialTimeline({ credentials, loading, error }: CredentialTi
                             <CredentialCard
                                 credential={credential}
                                 showTimeline={index < filteredAndSortedCredentials.length - 1}
+                                walletAddress={walletAddress}
+                                showVisibilityToggle={showVisibilityToggle}
                             />
                         </Box>
                     ))}
