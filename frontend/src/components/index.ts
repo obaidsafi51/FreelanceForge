@@ -14,3 +14,5 @@ export { CredentialPreview } from './CredentialPreview';
 export { BatchMintProgress } from './BatchMintProgress';
 export { PortfolioExporter } from './PortfolioExporter';
 export { ExportPreviewModal } from './ExportPreviewModal';
+export { PortfolioSharing } from './PortfolioSharing';
+export { VisibilityToggle } from './VisibilityToggle';

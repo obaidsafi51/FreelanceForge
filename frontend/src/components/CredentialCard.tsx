@@ -21,19 +21,25 @@ import {
     Star as ReviewIcon,
     Payment as PaymentIcon,
     School as CertificationIcon,
-    Visibility as PublicIcon,
-    VisibilityOff as PrivateIcon,
     Verified as VerifiedIcon,
 } from '@mui/icons-material';
 import { format, formatDistanceToNow } from 'date-fns';
+import { VisibilityToggle } from './VisibilityToggle';
 import type { Credential } from '../types';
 
 interface CredentialCardProps {
     credential: Credential;
     showTimeline?: boolean;
+    walletAddress?: string;
+    showVisibilityToggle?: boolean;
 }
 
-export function CredentialCard({ credential, showTimeline = false }: CredentialCardProps) {
+export function CredentialCard({
+    credential,
+    showTimeline = false,
+    walletAddress,
+    showVisibilityToggle = false
+}: CredentialCardProps) {
     const [expanded, setExpanded] = useState(false);
     const theme = useTheme();
 
@@ -161,18 +167,20 @@ export function CredentialCard({ credential, showTimeline = false }: CredentialC
                                 <Box
                                     className="credential-actions"
                                     sx={{
-                                        opacity: 0,
+                                        opacity: showVisibilityToggle ? 1 : 0,
                                         transition: 'opacity 0.2s ease-in-out',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 1,
                                     }}
                                 >
-                                    <Tooltip title={credential.visibility === 'public' ? 'Public' : 'Private'}>
-                                        <IconButton size="small">
-                                            {credential.visibility === 'public' ? <PublicIcon /> : <PrivateIcon />}
-                                        </IconButton>
-                                    </Tooltip>
+                                    {showVisibilityToggle && walletAddress && (
+                                        <VisibilityToggle
+                                            credential={credential}
+                                            walletAddress={walletAddress}
+                                            size="small"
+                                        />
+                                    )}
                                     {credential.proof_hash && (
                                         <Tooltip title="Verified with proof document">
                                             <VerifiedIcon color="success" fontSize="small" />

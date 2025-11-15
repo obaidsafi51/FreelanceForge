@@ -14,6 +14,7 @@ import { WalletConnection } from '../components/WalletConnection';
 import { CredentialDemo } from '../components/CredentialDemo';
 import { CredentialTimeline } from '../components/CredentialTimeline';
 import { CredentialTimelineDemo } from '../components/CredentialTimelineDemo';
+import { PortfolioSharing } from '../components/PortfolioSharing';
 import { TrustScoreWidget, TrustScoreBreakdown, TrustScoreDemo } from '../components';
 import { useWallet } from '../contexts/WalletContext';
 import { useCredentials } from '../hooks/useCredentials';
@@ -61,6 +62,7 @@ export function Dashboard() {
           <Paper sx={{ mb: 2 }}>
             <Tabs value={tabValue} onChange={handleTabChange} sx={{ px: 2 }}>
               <Tab label="Portfolio View" />
+              <Tab label="Share Portfolio" />
               <Tab label="Trust Score Demo" />
               <Tab label="Timeline Demo" />
               <Tab label="TanStack Query Demo" />
@@ -75,6 +77,8 @@ export function Dashboard() {
                     credentials={credentials}
                     loading={credentialsLoading}
                     error={credentialsError?.message || null}
+                    walletAddress={selectedAccount?.address}
+                    showVisibilityToggle={true}
                   />
                 </Paper>
               </Grid>
@@ -108,18 +112,26 @@ export function Dashboard() {
           )}
 
           {tabValue === 1 && (
+            <PortfolioSharing
+              walletAddress={selectedAccount?.address || ''}
+              credentials={credentials}
+              trustScore={trustScore}
+            />
+          )}
+
+          {tabValue === 2 && (
             <Paper sx={{ p: 3 }}>
               <TrustScoreDemo />
             </Paper>
           )}
 
-          {tabValue === 2 && (
+          {tabValue === 3 && (
             <Paper sx={{ p: 3 }}>
               <CredentialTimelineDemo />
             </Paper>
           )}
 
-          {tabValue === 3 && (
+          {tabValue === 4 && (
             <CredentialDemo walletAddress={selectedAccount?.address || null} />
           )}
         </Box>
