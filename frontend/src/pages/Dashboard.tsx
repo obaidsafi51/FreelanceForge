@@ -14,8 +14,10 @@ import { WalletConnection } from '../components/WalletConnection';
 import { CredentialDemo } from '../components/CredentialDemo';
 import { CredentialTimeline } from '../components/CredentialTimeline';
 import { CredentialTimelineDemo } from '../components/CredentialTimelineDemo';
+import { TrustScoreWidget, TrustScoreBreakdown, TrustScoreDemo } from '../components';
 import { useWallet } from '../contexts/WalletContext';
 import { useCredentials } from '../hooks/useCredentials';
+import { useTrustScore } from '../hooks/useTrustScore';
 import { useState } from 'react';
 
 export function Dashboard() {
@@ -28,6 +30,9 @@ export function Dashboard() {
     isLoading: credentialsLoading,
     error: credentialsError,
   } = useCredentials(selectedAccount?.address || null);
+
+  // Calculate trust score from credentials
+  const trustScore = useTrustScore(credentials);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -56,6 +61,7 @@ export function Dashboard() {
           <Paper sx={{ mb: 2 }}>
             <Tabs value={tabValue} onChange={handleTabChange} sx={{ px: 2 }}>
               <Tab label="Portfolio View" />
+              <Tab label="Trust Score Demo" />
               <Tab label="Timeline Demo" />
               <Tab label="TanStack Query Demo" />
             </Tabs>
@@ -74,23 +80,20 @@ export function Dashboard() {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <Paper sx={{ p: 3, mb: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Trust Score
-                  </Typography>
-                  <Box
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    minHeight={150}
-                    bgcolor="grey.50"
-                    borderRadius={1}
-                  >
-                    <Typography variant="body2" color="text.secondary">
-                      Trust score will be calculated from your credentials
-                    </Typography>
-                  </Box>
-                </Paper>
+                <Box sx={{ mb: 3 }}>
+                  <TrustScoreWidget
+                    trustScore={trustScore}
+                    animated={true}
+                    size="medium"
+                  />
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <TrustScoreBreakdown
+                    trustScore={trustScore}
+                    showDetails={true}
+                  />
+                </Box>
 
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="h6" gutterBottom>
@@ -106,11 +109,17 @@ export function Dashboard() {
 
           {tabValue === 1 && (
             <Paper sx={{ p: 3 }}>
-              <CredentialTimelineDemo />
+              <TrustScoreDemo />
             </Paper>
           )}
 
           {tabValue === 2 && (
+            <Paper sx={{ p: 3 }}>
+              <CredentialTimelineDemo />
+            </Paper>
+          )}
+
+          {tabValue === 3 && (
             <CredentialDemo walletAddress={selectedAccount?.address || null} />
           )}
         </Box>

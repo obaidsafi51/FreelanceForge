@@ -14,5 +14,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     testTimeout: 10000,
+    deps: {
+      optimizer: {
+        web: {
+          include: ['@mui/material', '@mui/icons-material'],
+        },
+      },
+    },
   },
 })

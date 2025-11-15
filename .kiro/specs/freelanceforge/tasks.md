@@ -125,7 +125,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 2.1, 2.2, 2.4, 2.5, 2.7_
   - _Dependencies: Task 7 (TanStack Query for data fetching), Task 6 (API integration for credential queries)_
 
-- [ ] 10. Implement trust score calculation and visualization
+- [x] 10. Implement trust score calculation and visualization
 
   - Create trust score calculation algorithm using specified formula: (0.60 × Review Score) + (0.30 × Skill Score) + (0.10 × Payment Score)
   - Implement component calculations for review score: (Average rating / 5) × 100 × 0.6

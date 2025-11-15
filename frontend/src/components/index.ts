@@ -4,3 +4,6 @@ export { CredentialForm } from './CredentialForm';
 export { TransactionPreview } from './TransactionPreview';
 export { CredentialTimeline } from './CredentialTimeline';
 export { CredentialCard } from './CredentialCard';
+export { TrustScoreWidget } from './TrustScoreWidget';
+export { TrustScoreBreakdown } from './TrustScoreBreakdown';
+export { TrustScoreDemo } from './TrustScoreDemo';
