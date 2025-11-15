@@ -137,7 +137,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 4.1, 4.2, 4.3, 4.4 (corrected formula), 4.5 (tier boundaries), 4.6, 2.3, 2.6_
   - _Dependencies: Task 2 (pallet defines credential structure), Task 6 (API to fetch credentials), Task 8 (credentials must be mintable), Task 9 (dashboard must display credentials for score calculation)_
 
-- [ ] 11. Create mock data import system for Web2 platforms
+- [x] 11. Create mock data import system for Web2 platforms
 
   - Implement JSON file upload component with drag-and-drop functionality and 5MB size limit (for import files, not individual credentials)
   - **Create data transformation functions** for platform-specific formats with credential type mapping:
