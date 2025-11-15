@@ -1,5 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
+import { useNotifications, NotificationTemplates } from '../components/NotificationSystem';
+import { useErrorHandler } from '../hooks/useErrorHandler';
 import type { WalletAccount, WalletState } from '../types';
 
 interface WalletContextType extends WalletState {
@@ -59,6 +61,8 @@ interface WalletProviderProps {
 
 export function WalletProvider({ children }: WalletProviderProps) {
   const [state, dispatch] = useReducer(walletReducer, initialState);
+  const { showSuccess, showInfo, addNotification } = useNotifications();
+  const { handleWalletError } = useErrorHandler();
 
   // Check for saved wallet connection on mount
   useEffect(() => {
@@ -92,14 +96,20 @@ export function WalletProvider({ children }: WalletProviderProps) {
           type: 'SET_CONNECTED',
           payload: { accounts, selectedAccount: validAccount }
         });
+
+        // Show reconnection success
+        showInfo('Wallet reconnected successfully');
       } else {
         // Account no longer available, clear saved data
         localStorage.removeItem('freelanceforge_wallet_account');
-        dispatch({ type: 'SET_ERROR', payload: 'Previously connected account is no longer available' });
+        throw new Error('Previously connected account is no longer available');
       }
     } catch (error) {
       console.error('Reconnection failed:', error);
       localStorage.removeItem('freelanceforge_wallet_account');
+
+      // Use error handler for consistent error handling
+      handleWalletError(error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to reconnect wallet' });
     }
   };
@@ -113,6 +123,8 @@ export function WalletProvider({ children }: WalletProviderProps) {
       const extensions = await web3Enable('FreelanceForge');
 
       if (extensions.length === 0) {
+        // Show wallet not found notification with install link
+        addNotification(NotificationTemplates.walletNotFound());
         throw new Error('No wallet extension detected. Please install Polkadot.js extension.');
       }
 
@@ -125,11 +137,18 @@ export function WalletProvider({ children }: WalletProviderProps) {
 
       dispatch({ type: 'SET_CONNECTED', payload: { accounts } });
 
+      // Show success notification
+      const accountName = accounts[0]?.meta.name || 'Account';
+      addNotification(NotificationTemplates.walletConnected(accountName));
+
       // Save the first account for auto-reconnection
       if (accounts[0]) {
         localStorage.setItem('freelanceforge_wallet_account', JSON.stringify(accounts[0]));
       }
     } catch (error) {
+      // Use error handler for consistent error handling
+      handleWalletError(error);
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect wallet';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
     }
@@ -138,6 +157,9 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const disconnectWallet = () => {
     localStorage.removeItem('freelanceforge_wallet_account');
     dispatch({ type: 'DISCONNECT' });
+
+    // Show disconnection notification
+    addNotification(NotificationTemplates.walletDisconnected());
   };
 
   const selectAccount = (account: WalletAccount) => {
@@ -153,6 +175,9 @@ export function WalletProvider({ children }: WalletProviderProps) {
       }
       return await injector.signer.signPayload(payload);
     } catch (error) {
+      // Use error handler for transaction signing errors
+      handleWalletError(error);
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to sign transaction';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
       throw error;
