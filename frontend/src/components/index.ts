@@ -12,3 +12,5 @@ export { MockDataUpload } from './MockDataUpload';
 export { ManualCredentialEntry } from './ManualCredentialEntry';
 export { CredentialPreview } from './CredentialPreview';
 export { BatchMintProgress } from './BatchMintProgress';
+export { PortfolioExporter } from './PortfolioExporter';
+export { ExportPreviewModal } from './ExportPreviewModal';

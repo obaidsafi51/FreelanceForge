@@ -156,7 +156,7 @@ Tasks are organized to enable parallel development of backend (Substrate) and fr
   - _Requirements: 5.1, 5.2 (platform mapping), 5.3, 5.4 (batch strategy), 5.5, 5.6, 5.7_
   - _Dependencies: Task 8 (minting interface must be functional)_
 
-- [ ] 12. Build portfolio export functionality
+- [x] 12. Build portfolio export functionality
 
   - Implement JSON export generation with complete credential metadata and trust score breakdown
   - **Add blockchain verification links**: Generate Subscan URLs for Paseo network (https://paseo.subscan.io/account/{wallet_address}) or local explorer links
