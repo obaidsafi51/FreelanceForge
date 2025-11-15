@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -14,15 +14,23 @@ import {
     Alert,
     CircularProgress,
     SelectChangeEvent,
+    Button,
+    Skeleton,
 } from '@mui/material';
 import {
     Search as SearchIcon,
     Sort as SortIcon,
     FilterList as FilterIcon,
+    ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { CredentialCard } from './CredentialCard';
 import type { Credential } from '../types';
+import { performanceMonitor, PerformanceMetrics, usePerformanceMonitor } from '../utils/performance';
 import './CredentialTimeline.css';
+
+// Performance constants
+const ITEMS_PER_PAGE = 20;
+const DEBOUNCE_DELAY = 300;
 
 interface CredentialTimelineProps {
     credentials: Credential[];
@@ -36,6 +44,23 @@ type SortField = 'date' | 'type' | 'rating' | 'name';
 type SortOrder = 'asc' | 'desc';
 type FilterType = 'all' | 'skill' | 'review' | 'payment' | 'certification';
 
+// Custom hook for debounced search
+function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [value, delay]);
+
+    return debouncedValue;
+}
+
 export function CredentialTimeline({
     credentials,
     loading,
@@ -43,18 +68,35 @@ export function CredentialTimeline({
     walletAddress,
     showVisibilityToggle = false
 }: CredentialTimelineProps) {
+    // Performance monitoring
+    usePerformanceMonitor('CredentialTimeline', [credentials.length, loading]);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     const [filterType, setFilterType] = useState<FilterType>('all');
+    const [displayedItems, setDisplayedItems] = useState(ITEMS_PER_PAGE);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-    // Filter and sort credentials
+    // Debounce search term to prevent excessive filtering
+    const debouncedSearchTerm = useDebounce(searchTerm, DEBOUNCE_DELAY);
+
+    // Ref for intersection observer
+    const loadMoreRef = useRef<HTMLDivElement>(null);
+
+    // Memoized filter and sort function for performance
     const filteredAndSortedCredentials = useMemo(() => {
+        performanceMonitor.start(PerformanceMetrics.TIMELINE_FILTER, {
+            credentialCount: credentials.length,
+            hasSearch: !!debouncedSearchTerm,
+            filterType,
+            sortField,
+        });
+
         let filtered = credentials;
 
-        // Apply search filter
-        if (searchTerm) {
-            const searchLower = searchTerm.toLowerCase();
+        // Apply search filter using debounced search term
+        if (debouncedSearchTerm) {
+            const searchLower = debouncedSearchTerm.toLowerCase();
             filtered = filtered.filter(
                 (credential) =>
                     credential.name.toLowerCase().includes(searchLower) ||
@@ -68,7 +110,7 @@ export function CredentialTimeline({
             filtered = filtered.filter((credential) => credential.credential_type === filterType);
         }
 
-        // Apply sorting
+        // Apply sorting with optimized comparison
         filtered.sort((a, b) => {
             let comparison = 0;
 
@@ -94,20 +136,76 @@ export function CredentialTimeline({
             return sortOrder === 'asc' ? comparison : -comparison;
         });
 
+        performanceMonitor.end(PerformanceMetrics.TIMELINE_FILTER, {
+            filteredCount: filtered.length,
+        });
+
         return filtered;
-    }, [credentials, searchTerm, sortField, sortOrder, filterType]);
+    }, [credentials, debouncedSearchTerm, sortField, sortOrder, filterType]);
 
-    const handleSortFieldChange = (event: SelectChangeEvent<SortField>) => {
+    // Get currently displayed credentials for pagination
+    const displayedCredentials = useMemo(() => {
+        return filteredAndSortedCredentials.slice(0, displayedItems);
+    }, [filteredAndSortedCredentials, displayedItems]);
+
+    // Check if there are more items to load
+    const hasMoreItems = displayedItems < filteredAndSortedCredentials.length;
+
+    // Memoized event handlers to prevent unnecessary re-renders
+    const handleSortFieldChange = useCallback((event: SelectChangeEvent<SortField>) => {
         setSortField(event.target.value as SortField);
-    };
+        setDisplayedItems(ITEMS_PER_PAGE); // Reset pagination when sorting changes
+    }, []);
 
-    const handleSortOrderChange = (event: SelectChangeEvent<SortOrder>) => {
+    const handleSortOrderChange = useCallback((event: SelectChangeEvent<SortOrder>) => {
         setSortOrder(event.target.value as SortOrder);
-    };
+        setDisplayedItems(ITEMS_PER_PAGE); // Reset pagination when sorting changes
+    }, []);
 
-    const handleFilterTypeChange = (event: SelectChangeEvent<FilterType>) => {
+    const handleFilterTypeChange = useCallback((event: SelectChangeEvent<FilterType>) => {
         setFilterType(event.target.value as FilterType);
-    };
+        setDisplayedItems(ITEMS_PER_PAGE); // Reset pagination when filter changes
+    }, []);
+
+    const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(event.target.value);
+        setDisplayedItems(ITEMS_PER_PAGE); // Reset pagination when search changes
+    }, []);
+
+    // Load more items handler
+    const handleLoadMore = useCallback(() => {
+        if (!isLoadingMore && hasMoreItems) {
+            setIsLoadingMore(true);
+            // Simulate loading delay for better UX
+            setTimeout(() => {
+                setDisplayedItems(prev => prev + ITEMS_PER_PAGE);
+                setIsLoadingMore(false);
+            }, 300);
+        }
+    }, [isLoadingMore, hasMoreItems]);
+
+    // Intersection observer for infinite scroll
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMoreItems && !isLoadingMore) {
+                    handleLoadMore();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        const currentRef = loadMoreRef.current;
+        if (currentRef) {
+            observer.observe(currentRef);
+        }
+
+        return () => {
+            if (currentRef) {
+                observer.unobserve(currentRef);
+            }
+        };
+    }, [hasMoreItems, isLoadingMore, handleLoadMore]);
 
     const getCredentialTypeColor = (type: string) => {
         switch (type) {
@@ -165,7 +263,7 @@ export function CredentialTimeline({
                             size="small"
                             placeholder="Search credentials..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={handleSearchChange}
                             InputProps={{
                                 startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
                             }}
@@ -263,16 +361,53 @@ export function CredentialTimeline({
                 </Paper>
             ) : (
                 <Box>
-                    {filteredAndSortedCredentials.map((credential, index) => (
+                    {/* Render displayed credentials */}
+                    {displayedCredentials.map((credential, index) => (
                         <Box key={credential.id} mb={2}>
                             <CredentialCard
                                 credential={credential}
-                                showTimeline={index < filteredAndSortedCredentials.length - 1}
+                                showTimeline={index < displayedCredentials.length - 1}
                                 walletAddress={walletAddress}
                                 showVisibilityToggle={showVisibilityToggle}
                             />
                         </Box>
                     ))}
+
+                    {/* Load more section */}
+                    {hasMoreItems && (
+                        <Box textAlign="center" mt={3} mb={2}>
+                            {isLoadingMore ? (
+                                <Box>
+                                    <CircularProgress size={24} sx={{ mb: 2 }} />
+                                    <Typography variant="body2" color="text.secondary">
+                                        Loading more credentials...
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <Button
+                                    variant="outlined"
+                                    onClick={handleLoadMore}
+                                    startIcon={<ExpandMoreIcon />}
+                                    sx={{ mb: 2 }}
+                                >
+                                    Load More ({filteredAndSortedCredentials.length - displayedItems} remaining)
+                                </Button>
+                            )}
+                        </Box>
+                    )}
+
+                    {/* Intersection observer target for infinite scroll */}
+                    <div ref={loadMoreRef} style={{ height: '1px' }} />
+
+                    {/* Performance info for development */}
+                    {process.env.NODE_ENV === 'development' && (
+                        <Box mt={2} p={2} bgcolor="grey.100" borderRadius={1}>
+                            <Typography variant="caption" color="text.secondary">
+                                Performance: Showing {displayedCredentials.length} of {filteredAndSortedCredentials.length} filtered credentials
+                                ({credentials.length} total)
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
             )}
         </Box>

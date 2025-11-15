@@ -16,6 +16,7 @@ import { CredentialTimeline } from '../components/CredentialTimeline';
 import { CredentialTimelineDemo } from '../components/CredentialTimelineDemo';
 import { PortfolioSharing } from '../components/PortfolioSharing';
 import { TrustScoreWidget, TrustScoreBreakdown, TrustScoreDemo } from '../components';
+import { PerformanceDashboard } from '../components/PerformanceDashboard';
 import { useWallet } from '../contexts/WalletContext';
 import { useCredentials } from '../hooks/useCredentials';
 import { useTrustScore } from '../hooks/useTrustScore';
@@ -24,6 +25,7 @@ import { useState } from 'react';
 export function Dashboard() {
   const { isConnected, selectedAccount } = useWallet();
   const [tabValue, setTabValue] = useState(0);
+  const [mockCredentials, setMockCredentials] = useState<any[]>([]);
 
   // Fetch credentials for the connected account
   const {
@@ -32,8 +34,11 @@ export function Dashboard() {
     error: credentialsError,
   } = useCredentials(selectedAccount?.address || null);
 
+  // Use mock credentials if available (for performance testing)
+  const displayCredentials = mockCredentials.length > 0 ? mockCredentials : credentials;
+
   // Calculate trust score from credentials
-  const trustScore = useTrustScore(credentials);
+  const trustScore = useTrustScore(displayCredentials);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -66,6 +71,7 @@ export function Dashboard() {
               <Tab label="Trust Score Demo" />
               <Tab label="Timeline Demo" />
               <Tab label="TanStack Query Demo" />
+              {process.env.NODE_ENV === 'development' && <Tab label="Performance" />}
             </Tabs>
           </Paper>
 
@@ -74,7 +80,7 @@ export function Dashboard() {
               <Grid item xs={12} md={8}>
                 <Paper sx={{ p: 3, minHeight: 400 }}>
                   <CredentialTimeline
-                    credentials={credentials}
+                    credentials={displayCredentials}
                     loading={credentialsLoading}
                     error={credentialsError?.message || null}
                     walletAddress={selectedAccount?.address}
@@ -114,7 +120,7 @@ export function Dashboard() {
           {tabValue === 1 && (
             <PortfolioSharing
               walletAddress={selectedAccount?.address || ''}
-              credentials={credentials}
+              credentials={displayCredentials}
               trustScore={trustScore}
             />
           )}
@@ -133,6 +139,12 @@ export function Dashboard() {
 
           {tabValue === 4 && (
             <CredentialDemo walletAddress={selectedAccount?.address || null} />
+          )}
+
+          {tabValue === 5 && process.env.NODE_ENV === 'development' && (
+            <PerformanceDashboard
+              onMockDataGenerated={setMockCredentials}
+            />
           )}
         </Box>
       )}

@@ -1,5 +1,6 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
+import { performanceMonitor, PerformanceMetrics } from './performance';
 import type { Credential } from '../types';
 
 // API Error types
@@ -635,7 +636,11 @@ export async function mintCredential(
   accountAddress: string,
   credentialData: CredentialMetadata
 ): Promise<TransactionResult> {
-  return freelanceForgeAPI.mintCredential(accountAddress, credentialData);
+  return performanceMonitor.measure(
+    PerformanceMetrics.API_MINT_CREDENTIAL,
+    () => freelanceForgeAPI.mintCredential(accountAddress, credentialData),
+    { accountAddress, credentialType: credentialData.credential_type }
+  );
 }
 
 export async function updateCredential(
@@ -657,7 +662,11 @@ export async function deleteCredential(
 }
 
 export async function getCredentials(accountAddress: string): Promise<Credential[]> {
-  return freelanceForgeAPI.getCredentials(accountAddress);
+  return performanceMonitor.measure(
+    PerformanceMetrics.API_GET_CREDENTIALS,
+    () => freelanceForgeAPI.getCredentials(accountAddress),
+    { accountAddress }
+  );
 }
 
 export async function getCredentialById(credentialId: string): Promise<Credential | null> {

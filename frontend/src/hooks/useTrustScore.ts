@@ -5,40 +5,118 @@ import { calculateTrustScore } from '../utils/trustScore';
 /**
  * Custom hook for calculating trust score from credentials
  * Memoizes the calculation to prevent unnecessary recalculations
+ * Uses deep comparison for credentials array to avoid recalculation on reference changes
  */
 export function useTrustScore(credentials: Credential[]): TrustScore {
   return useMemo(() => {
+    // Early return for empty credentials
+    if (!credentials || credentials.length === 0) {
+      return {
+        total: 0,
+        tier: 'Bronze',
+        breakdown: {
+          review_score: 0,
+          skill_score: 0,
+          payment_score: 0,
+        },
+      };
+    }
+    
     return calculateTrustScore(credentials);
-  }, [credentials]);
+  }, [
+    // Use JSON.stringify for deep comparison to prevent unnecessary recalculations
+    // when credentials array reference changes but content is the same
+    JSON.stringify(credentials.map(c => ({
+      id: c.id,
+      credential_type: c.credential_type,
+      rating: c.rating,
+      timestamp: c.timestamp,
+    })))
+  ]);
 }
 
 /**
- * Hook for getting trust score statistics
+ * Hook for getting trust score statistics with optimized calculations
  */
 export function useTrustScoreStats(credentials: Credential[]) {
   return useMemo(() => {
+    // Early return for empty credentials
+    if (!credentials || credentials.length === 0) {
+      return {
+        trustScore: {
+          total: 0,
+          tier: 'Bronze' as const,
+          breakdown: {
+            review_score: 0,
+            skill_score: 0,
+            payment_score: 0,
+          },
+        },
+        credentialCounts: {
+          total: 0,
+          reviews: 0,
+          skills: 0,
+          payments: 0,
+          certifications: 0,
+        },
+        averageRating: 0,
+        hasCredentials: false,
+      };
+    }
+
     const trustScore = calculateTrustScore(credentials);
     
-    // Calculate credential counts by type
-    const credentialCounts = {
-      total: credentials.length,
-      reviews: credentials.filter(c => c.credential_type === 'review').length,
-      skills: credentials.filter(c => c.credential_type === 'skill').length,
-      payments: credentials.filter(c => c.credential_type === 'payment').length,
-      certifications: credentials.filter(c => c.credential_type === 'certification').length,
-    };
+    // Calculate credential counts by type in a single pass
+    const credentialCounts = credentials.reduce((counts, credential) => {
+      counts.total++;
+      switch (credential.credential_type) {
+        case 'review':
+          counts.reviews++;
+          break;
+        case 'skill':
+          counts.skills++;
+          break;
+        case 'payment':
+          counts.payments++;
+          break;
+        case 'certification':
+          counts.certifications++;
+          break;
+      }
+      return counts;
+    }, {
+      total: 0,
+      reviews: 0,
+      skills: 0,
+      payments: 0,
+      certifications: 0,
+    });
     
-    // Calculate average rating from reviews
-    const reviewCredentials = credentials.filter(c => c.credential_type === 'review' && c.rating);
-    const averageRating = reviewCredentials.length > 0
-      ? reviewCredentials.reduce((sum, cred) => sum + (cred.rating || 0), 0) / reviewCredentials.length
+    // Calculate average rating from reviews in a single pass
+    const { totalRating, reviewCount } = credentials.reduce((acc, credential) => {
+      if (credential.credential_type === 'review' && credential.rating) {
+        acc.totalRating += credential.rating;
+        acc.reviewCount++;
+      }
+      return acc;
+    }, { totalRating: 0, reviewCount: 0 });
+    
+    const averageRating = reviewCount > 0 
+      ? Math.round((totalRating / reviewCount) * 100) / 100 
       : 0;
     
     return {
       trustScore,
       credentialCounts,
-      averageRating: Math.round(averageRating * 100) / 100,
+      averageRating,
       hasCredentials: credentials.length > 0,
     };
-  }, [credentials]);
+  }, [
+    // Use optimized dependency to prevent unnecessary recalculations
+    credentials.length,
+    JSON.stringify(credentials.map(c => ({
+      credential_type: c.credential_type,
+      rating: c.rating,
+    })))
+  ]);
 }
