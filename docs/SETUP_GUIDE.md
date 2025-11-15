@@ -9,10 +9,24 @@ FreelanceForge/
 ├── substrate-node/         # Polkadot Substrate blockchain node
 ├── frontend/               # React + TypeScript frontend application
 ├── docs/                   # Documentation
-└── docker-compose.yml      # Docker orchestration for local development
+└── setup-and-run.sh        # Local development script
 ```
 
-## Prerequisites
+## Quick Setup (Recommended)
+
+The easiest way to get started is using the automated setup script:
+
+```bash
+git clone <repository-url>
+cd freelanceforge
+./setup-and-run.sh setup
+```
+
+This script will automatically install all dependencies and build the project.
+
+## Manual Setup
+
+If you prefer to install dependencies manually:
 
 ### Required Software
 
@@ -34,16 +48,15 @@ FreelanceForge/
   nvm use 18
   ```
 
-- **Docker & Docker Compose**: For containerized development
+- **System Dependencies**: Build tools and libraries
 
   ```bash
-  # Install Docker (Ubuntu/Debian)
-  curl -fsSL https://get.docker.com -o get-docker.sh
-  sudo sh get-docker.sh
-  sudo usermod -aG docker $USER
+  # Ubuntu/Debian
+  sudo apt-get update
+  sudo apt-get install -y build-essential pkg-config libssl-dev protobuf-compiler clang cmake
 
-  # Install Docker Compose
-  sudo apt-get install docker-compose
+  # macOS (using Homebrew)
+  brew install pkg-config openssl protobuf cmake
   ```
 
 - **psvm** (Polkadot SDK Version Manager): For managing Substrate dependencies
