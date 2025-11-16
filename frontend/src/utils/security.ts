@@ -121,7 +121,7 @@ export const credentialMetadataSchema = yup.object({
     .string()
     .min(1, 'Name is required')
     .max(100, 'Name must be 100 characters or less')
-    .matches(/^[a-zA-Z0-9\s\-_.()]+$/, 'Name contains invalid characters')
+    .matches(/^[a-zA-Z0-9\s\-_.():,&/+'"@#]+$/, 'Name contains invalid characters')
     .required('Name is required'),
   
   description: yup
@@ -134,7 +134,7 @@ export const credentialMetadataSchema = yup.object({
     .string()
     .min(1, 'Issuer is required')
     .max(100, 'Issuer must be 100 characters or less')
-    .matches(/^[a-zA-Z0-9\s\-_.()]+$/, 'Issuer contains invalid characters')
+    .matches(/^[a-zA-Z0-9\s\-_.():,&/+'"@#]+$/, 'Issuer contains invalid characters')
     .required('Issuer is required'),
   
   rating: yup

@@ -20,8 +20,7 @@ export interface FreelanceCredentialsCall extends Codec {
   readonly isUpdateCredential: boolean;
   readonly asUpdateCredential: {
     readonly credentialId: H256;
-    readonly visibility: Option<Bytes>;
-    readonly proofHash: Option<H256>;
+    readonly newMetadata: Bytes;
   };
   readonly isDeleteCredential: boolean;
   readonly asDeleteCredential: {
@@ -62,8 +61,7 @@ export interface FreelanceForgeApi {
       mintCredential: (metadataJson: Bytes | string | Uint8Array) => any;
       updateCredential: (
         credentialId: H256 | string,
-        visibility: Option<Bytes> | null,
-        proofHash: Option<H256> | null
+        newMetadata: Bytes | string | Uint8Array
       ) => any;
       deleteCredential: (credentialId: H256 | string) => any;
     };
