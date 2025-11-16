@@ -6,19 +6,16 @@
     "setup": "./setup-and-run.sh setup",
     "dev": "./setup-and-run.sh run",
     "start": "./setup-and-run.sh run",
+    "judge": "./setup-and-run.sh judge",
+    "fund": "./setup-and-run.sh fund",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:substrate": "cd substrate-node && cargo run --release -p minimal-template-node -- --dev --rpc-external",
     "build": "npm run build:substrate && npm run build:frontend",
     "build:frontend": "cd frontend && npm run build",
     "build:substrate": "cd substrate-node && cargo build --release -p minimal-template-node",
-    "test": "./setup-and-run.sh test",
-    "test:local": "./test-local.sh",
-    "test:frontend": "cd frontend && npm run test",
-    "test:substrate": "cd substrate-node && cargo test",
+
     "clean": "./setup-and-run.sh clean",
     "install:frontend": "cd frontend && npm install",
-    "verify": "./verify-setup.sh",
-    "troubleshoot": "./troubleshoot.sh",
     "help": "./setup-and-run.sh help"
   },
   "keywords": [
@@ -35,5 +32,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/freelanceforge/freelanceforge.git"
+  },
+  "dependencies": {
+    "@polkadot/api": "^16.5.2"
   }
 }

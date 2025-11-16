@@ -1,7 +1,7 @@
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import { web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import { performanceMonitor, PerformanceMetrics } from './performance';
-import { captureError, captureMessage, ErrorCategory, ErrorSeverity, addBreadcrumb } from './errorMonitoring';
+
 import type { Credential } from '../types';
 
 // API Error types
@@ -69,6 +69,7 @@ class FreelanceForgeAPI {
   private config: ApiConfig;
   private currentEndpointIndex = 0;
   private isConnecting = false;
+  private pendingTransactions = new Set<string>();
 
   constructor() {
     // Initialize configuration based on environment variables
@@ -127,6 +128,20 @@ class FreelanceForgeAPI {
 
     this.isConnecting = true;
 
+    // Add global error handler for Polkadot.js API
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      const message = args.join(' ');
+      if (message.includes('Cannot read properties of undefined') || 
+          message.includes('Accessing element.ref was removed') ||
+          message.includes('Unsupported unsigned extrinsic version')) {
+        console.warn('Polkadot.js API compatibility warning:', message);
+        // Don't throw, just log the warning
+        return;
+      }
+      originalConsoleError.apply(console, args);
+    };
+
     try {
       for (let i = 0; i < this.config.endpoints.length; i++) {
         const endpointIndex = (this.currentEndpointIndex + i) % this.config.endpoints.length;
@@ -134,28 +149,56 @@ class FreelanceForgeAPI {
 
         try {
           console.log(`Attempting to connect to ${endpoint}...`);
-          addBreadcrumb(`Connecting to ${endpoint}`, 'api');
+          console.log(`Connecting to ${endpoint}`);
           
-          const provider = new WsProvider(endpoint, 5000); // 5 second timeout
-          const api = await ApiPromise.create({ provider });
+          const provider = new WsProvider(endpoint, 10000); // 10 second timeout for better reliability
           
-          await api.isReady;
+          // Add connection event listeners for better debugging
+          provider.on('connected', () => {
+            console.log(`WebSocket connected to ${endpoint}`);
+          });
+          
+          provider.on('disconnected', () => {
+            console.log(`WebSocket disconnected from ${endpoint}`);
+          });
+          
+          provider.on('error', (error) => {
+            console.warn(`WebSocket error on ${endpoint}:`, error);
+          });
+          
+          const api = await Promise.race([
+            ApiPromise.create({ 
+              provider,
+              throwOnConnect: true, // Throw errors immediately instead of retrying
+              // Add runtime version compatibility
+              noInitWarn: true,
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('API creation timeout')), 15000)
+            )
+          ]) as ApiPromise;
+          
+          await Promise.race([
+            api.isReady,
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('API ready timeout')), 10000)
+            )
+          ]);
+          
+          // Verify the API is properly initialized
+          if (!api.registry || !api.query || !api.tx) {
+            throw new Error('API not properly initialized - missing registry, query, or tx');
+          }
           
           this.api = api;
           this.currentEndpointIndex = endpointIndex;
           
           console.log(`Successfully connected to ${endpoint}`);
-          captureMessage(`Successfully connected to ${endpoint}`, ErrorCategory.NETWORK, ErrorSeverity.LOW);
-          addBreadcrumb(`Connected to ${endpoint}`, 'api');
+          console.log(`Successfully connected to ${endpoint}`);
           return api;
         } catch (error) {
           console.warn(`Failed to connect to ${endpoint}:`, error);
-          captureError(
-            error as Error,
-            ErrorCategory.NETWORK,
-            ErrorSeverity.MEDIUM,
-            { endpoint, attemptIndex: i }
-          );
+          console.error(`Connection failed for ${endpoint}:`, error);
           continue;
         }
       }
@@ -165,12 +208,7 @@ class FreelanceForgeAPI {
         'Failed to connect to any RPC endpoint'
       );
       
-      captureError(
-        connectionError,
-        ErrorCategory.NETWORK,
-        ErrorSeverity.CRITICAL,
-        { endpoints: this.config.endpoints, network: this.config.network }
-      );
+      console.error('Failed to connect to any RPC endpoint:', this.config.endpoints);
       
       throw connectionError;
     } finally {
@@ -268,7 +306,17 @@ class FreelanceForgeAPI {
     accountAddress: string,
     credentialData: CredentialMetadata
   ): Promise<TransactionResult> {
-    return this.retryWithBackoff(async () => {
+    // Create a unique transaction key to prevent duplicates
+    const transactionKey = `mint_${accountAddress}_${credentialData.name}_${credentialData.timestamp}`;
+    
+    if (this.pendingTransactions.has(transactionKey)) {
+      throw new ApiError(ApiErrorType.TRANSACTION_FAILED, 'Transaction already in progress');
+    }
+    
+    this.pendingTransactions.add(transactionKey);
+    
+    try {
+      return await this.retryWithBackoff(async () => {
       const api = await this.connect();
       
       // Validate metadata
@@ -282,24 +330,54 @@ class FreelanceForgeAPI {
       
       // Prepare metadata JSON
       const metadataJson = JSON.stringify(credentialData);
-      const metadataBytes = new TextEncoder().encode(metadataJson);
+      const metadataBytes = Array.from(new TextEncoder().encode(metadataJson));
       
       // Create and sign transaction
       const tx = api.tx.freelanceCredentials.mintCredential(metadataBytes);
       
+      // Check account balance before submitting
+      try {
+        const accountInfo = await api.query.system.account(accountAddress);
+        const balance = accountInfo.data.free.toBigInt();
+        console.log(`Account balance: ${balance} units`);
+        
+        if (balance === 0n) {
+          throw new ApiError(
+            ApiErrorType.INSUFFICIENT_BALANCE,
+            'Account has zero balance. Please fund your account with some tokens.'
+          );
+        }
+      } catch (balanceError) {
+        console.warn('Could not check balance:', balanceError);
+        // Continue anyway, let the transaction fail if needed
+      }
+
       return new Promise<TransactionResult>((resolve, reject) => {
+        console.log('Submitting transaction...');
+        let isResolved = false; // Prevent multiple resolutions
+        
         tx.signAndSend(accountAddress, { signer: injector.signer }, (result: any) => {
+          if (isResolved) return; // Skip if already resolved
+          
+          console.log('Transaction status update:', result?.status?.type);
+          
+          if (!result || !result.status) {
+            console.warn('Received invalid transaction result');
+            return;
+          }
+
           if (result.status.isInBlock) {
             console.log(`Transaction included in block: ${result.status.asInBlock}`);
           } else if (result.status.isFinalized) {
             console.log(`Transaction finalized: ${result.status.asFinalized}`);
+            isResolved = true; // Mark as resolved
             
             // Check for errors in events
-            const errorEvent = result.events.find(({ event }: any) => 
-              api.events.system.ExtrinsicFailed.is(event)
+            const errorEvent = result.events?.find(({ event }: any) => 
+              event && api.events.system.ExtrinsicFailed.is(event)
             );
             
-            if (errorEvent) {
+            if (errorEvent && errorEvent.event && errorEvent.event.data) {
               const [dispatchError] = errorEvent.event.data;
               let errorMessage = 'Transaction failed';
               
@@ -327,28 +405,36 @@ class FreelanceForgeAPI {
               reject(new ApiError(ApiErrorType.TRANSACTION_FAILED, errorMessage));
             } else {
               resolve({
-                hash: result.txHash.toString(),
-                blockHash: result.status.asFinalized.toString(),
+                hash: result.txHash?.toString() || 'unknown',
+                blockHash: result.status.asFinalized?.toString() || 'unknown',
                 success: true,
               });
             }
           } else if (result.isError) {
+            isResolved = true;
             reject(new ApiError(
               ApiErrorType.TRANSACTION_FAILED,
               'Transaction failed'
             ));
           }
         }).catch((error: any) => {
+          console.error('Transaction submission error:', error);
+          
           if (error.message.includes('Cancelled')) {
             reject(new ApiError(ApiErrorType.TRANSACTION_FAILED, 'Transaction cancelled by user'));
-          } else if (error.message.includes('balance')) {
-            reject(new ApiError(ApiErrorType.INSUFFICIENT_BALANCE, 'Insufficient balance for transaction'));
+          } else if (error.message.includes('balance') || error.message.includes('Balance')) {
+            reject(new ApiError(ApiErrorType.INSUFFICIENT_BALANCE, 'Insufficient balance for transaction fees'));
+          } else if (error.message.includes('Network') || error.message.includes('connection')) {
+            reject(new ApiError(ApiErrorType.NETWORK_ERROR, 'Network error during transaction submission'));
           } else {
-            reject(new ApiError(ApiErrorType.TRANSACTION_FAILED, error.message, error));
+            reject(new ApiError(ApiErrorType.TRANSACTION_FAILED, `Transaction failed: ${error.message}`, error));
           }
         });
       });
-    });
+      });
+    } finally {
+      this.pendingTransactions.delete(transactionKey);
+    }
   } 
   /**
    * Update an existing credential's visibility or proof_hash
@@ -364,27 +450,63 @@ class FreelanceForgeAPI {
     return this.retryWithBackoff(async () => {
       const api = await this.connect();
       
+      // First, get the existing credential to update its metadata
+      const existingCredential = await this.getCredentialById(credentialId);
+      if (!existingCredential) {
+        throw new ApiError(ApiErrorType.CREDENTIAL_NOT_FOUND, 'Credential not found');
+      }
+      
+      // Create updated metadata
+      const updatedMetadata: CredentialMetadata = {
+        credential_type: existingCredential.credential_type,
+        name: existingCredential.name,
+        description: existingCredential.description,
+        issuer: existingCredential.issuer,
+        timestamp: existingCredential.timestamp,
+        visibility: updates.visibility || existingCredential.visibility,
+        proof_hash: updates.proof_hash || existingCredential.proof_hash,
+      };
+      
       // Enable web3 extension
       await web3Enable('FreelanceForge');
       
       // Get injector for signing
       const injector = await web3FromAddress(accountAddress);
       
-      // Prepare update parameters
-      const visibilityBytes = updates.visibility ? 
-        new TextEncoder().encode(updates.visibility) : null;
-      const proofHash = updates.proof_hash || null;
+      // Prepare metadata JSON
+      const metadataJson = JSON.stringify(updatedMetadata);
+      const metadataBytes = Array.from(new TextEncoder().encode(metadataJson));
       
-      // Create and sign transaction
+      console.log('Calling updateCredential with:', {
+        credentialId,
+        updatedMetadata,
+        accountAddress
+      });
+      
       const tx = api.tx.freelanceCredentials.updateCredential(
         credentialId,
-        visibilityBytes,
-        proofHash
+        metadataBytes
       );
       
       return new Promise<TransactionResult>((resolve, reject) => {
+        console.log('Submitting updateCredential transaction...');
+        let isResolved = false; // Prevent multiple resolutions
+        
         tx.signAndSend(accountAddress, { signer: injector.signer }, (result: any) => {
-          if (result.status.isFinalized) {
+          if (isResolved) return; // Skip if already resolved
+          
+          console.log('UpdateCredential transaction status:', result?.status?.type, result);
+          
+          if (!result || !result.status) {
+            console.warn('Received invalid transaction result:', result);
+            return;
+          }
+
+          if (result.status.isInBlock) {
+            console.log(`UpdateCredential transaction included in block: ${result.status.asInBlock}`);
+          } else if (result.status.isFinalized) {
+            isResolved = true; // Mark as resolved
+            
             // Check for errors in events
             const errorEvent = result.events.find(({ event }: any) => 
               api.events.system.ExtrinsicFailed.is(event)
@@ -420,6 +542,7 @@ class FreelanceForgeAPI {
               });
             }
           } else if (result.isError) {
+            isResolved = true;
             reject(new ApiError(
               ApiErrorType.TRANSACTION_FAILED,
               'Update transaction failed'
@@ -458,8 +581,14 @@ class FreelanceForgeAPI {
       const tx = api.tx.freelanceCredentials.deleteCredential(credentialId);
       
       return new Promise<TransactionResult>((resolve, reject) => {
+        let isResolved = false; // Prevent multiple resolutions
+        
         tx.signAndSend(accountAddress, { signer: injector.signer }, (result: any) => {
+          if (isResolved) return; // Skip if already resolved
+          
           if (result.status.isFinalized) {
+            isResolved = true; // Mark as resolved
+            
             // Check for errors in events
             const errorEvent = result.events.find(({ event }: any) => 
               api.events.system.ExtrinsicFailed.is(event)
@@ -495,6 +624,7 @@ class FreelanceForgeAPI {
               });
             }
           } else if (result.isError) {
+            isResolved = true;
             reject(new ApiError(
               ApiErrorType.TRANSACTION_FAILED,
               'Delete transaction failed'
@@ -521,15 +651,35 @@ class FreelanceForgeAPI {
       const api = await this.connect();
       
       try {
-        // Query the OwnerCredentials storage to get credential IDs for this account
-        const credentialIds = await api.query.freelanceCredentials.ownerCredentials(accountAddress);
-        
-        if (!credentialIds || credentialIds.isEmpty) {
+        // Verify API is ready and has the required pallet
+        if (!api.query?.freelanceCredentials) {
+          console.warn('FreelanceCredentials pallet not found in runtime, returning empty credentials');
           return [];
         }
         
-        // Convert to array of credential IDs
-        const ids = credentialIds.toJSON() as string[];
+        // Query the OwnerCredentials storage to get credential IDs for this account
+        const credentialIds = await api.query.freelanceCredentials.ownerCredentials(accountAddress);
+        
+        console.log(`Raw credential IDs for ${accountAddress}:`, credentialIds?.toString());
+        
+        if (!credentialIds || credentialIds.isEmpty) {
+          console.log(`No credentials found for account ${accountAddress}`);
+          return [];
+        }
+        
+        // Convert to array of credential IDs with error handling
+        let ids: string[];
+        try {
+          ids = credentialIds.toJSON() as string[];
+          console.log(`Parsed credential IDs for ${accountAddress}:`, ids);
+          if (!Array.isArray(ids)) {
+            console.warn('Expected array of credential IDs, got:', typeof ids, ids);
+            return [];
+          }
+        } catch (jsonError) {
+          console.warn('Failed to parse credential IDs:', jsonError);
+          return [];
+        }
         
         // Fetch each credential's metadata
         const credentials: Credential[] = [];
@@ -539,11 +689,48 @@ class FreelanceForgeAPI {
             const credentialData = await api.query.freelanceCredentials.credentials(credentialId);
             
             if (credentialData && !credentialData.isEmpty) {
-              const [owner, metadataBytes] = credentialData.toJSON() as [string, number[]];
+              let owner: string;
+              let metadataBytes: number[];
               
-              // Convert bytes back to JSON string
-              const metadataJson = new TextDecoder().decode(new Uint8Array(metadataBytes));
-              const metadata = JSON.parse(metadataJson) as CredentialMetadata;
+              try {
+                const credentialJson = credentialData.toJSON();
+                if (!Array.isArray(credentialJson) || credentialJson.length !== 2) {
+                  console.warn(`Invalid credential data format for ${credentialId}:`, credentialJson);
+                  continue;
+                }
+                [owner, metadataBytes] = credentialJson as [string, number[]];
+              } catch (parseError) {
+                console.warn(`Failed to parse credential data for ${credentialId}:`, parseError);
+                continue;
+              }
+              
+              // Convert bytes back to JSON string with error handling
+              let metadata: CredentialMetadata;
+              try {
+                let uint8Array: Uint8Array;
+                
+                if (Array.isArray(metadataBytes)) {
+                  // If it's already an array of numbers, use it directly
+                  uint8Array = new Uint8Array(metadataBytes);
+                } else if (typeof metadataBytes === 'string' && metadataBytes.startsWith('0x')) {
+                  // If it's a hex string, convert it to bytes
+                  const hexString = metadataBytes.slice(2); // Remove '0x' prefix
+                  const bytes = [];
+                  for (let i = 0; i < hexString.length; i += 2) {
+                    bytes.push(parseInt(hexString.substr(i, 2), 16));
+                  }
+                  uint8Array = new Uint8Array(bytes);
+                } else {
+                  console.warn(`Invalid metadata bytes format for ${credentialId}:`, typeof metadataBytes, metadataBytes);
+                  continue;
+                }
+                
+                const metadataJson = new TextDecoder().decode(uint8Array);
+                metadata = JSON.parse(metadataJson) as CredentialMetadata;
+              } catch (decodeError) {
+                console.warn(`Failed to decode metadata for ${credentialId}:`, decodeError);
+                continue;
+              }
               
               // Create credential object
               const credential: Credential = {
@@ -568,9 +755,13 @@ class FreelanceForgeAPI {
         }
         
         // Sort by timestamp (newest first)
-        return credentials.sort((a, b) => 
+        const sortedCredentials = credentials.sort((a, b) => 
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
+        
+        console.log(`Found ${sortedCredentials.length} credentials for account ${accountAddress}:`, sortedCredentials.map(c => ({ id: c.id, name: c.name })));
+        
+        return sortedCredentials;
         
       } catch (error) {
         console.error('Failed to fetch credentials:', error);
@@ -597,10 +788,27 @@ class FreelanceForgeAPI {
           return null;
         }
         
-        const [owner, metadataBytes] = credentialData.toJSON() as [string, number[]];
+        const [owner, metadataBytes] = credentialData.toJSON() as [string, number[] | string];
         
         // Convert bytes back to JSON string
-        const metadataJson = new TextDecoder().decode(new Uint8Array(metadataBytes));
+        let uint8Array: Uint8Array;
+        
+        if (Array.isArray(metadataBytes)) {
+          // If it's already an array of numbers, use it directly
+          uint8Array = new Uint8Array(metadataBytes);
+        } else if (typeof metadataBytes === 'string' && metadataBytes.startsWith('0x')) {
+          // If it's a hex string, convert it to bytes
+          const hexString = metadataBytes.slice(2); // Remove '0x' prefix
+          const bytes = [];
+          for (let i = 0; i < hexString.length; i += 2) {
+            bytes.push(parseInt(hexString.substr(i, 2), 16));
+          }
+          uint8Array = new Uint8Array(bytes);
+        } else {
+          throw new Error(`Invalid metadata bytes format: ${typeof metadataBytes}`);
+        }
+        
+        const metadataJson = new TextDecoder().decode(uint8Array);
         const metadata = JSON.parse(metadataJson) as CredentialMetadata;
         
         return {

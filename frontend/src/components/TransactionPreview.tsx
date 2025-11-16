@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -6,55 +7,178 @@ import {
     Button,
     Typography,
     Box,
-    Divider,
     Alert,
+    Divider,
     Chip,
     Grid,
-    Paper,
+    Card,
+    CardContent,
     CircularProgress,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
 } from '@mui/material';
 import {
+    ExpandMore as ExpandMoreIcon,
+    Security as SecurityIcon,
     AccountBalance as AccountBalanceIcon,
     Receipt as ReceiptIcon,
-    Security as SecurityIcon,
-    Info as InfoIcon,
+    Warning as WarningIcon,
 } from '@mui/icons-material';
+import { useWallet } from '../contexts/WalletContext';
+import { getNetworkInfo } from '../utils/api';
 import type { CredentialMetadata } from '../utils/api';
+
+export interface TransactionDetails {
+    type: 'mint_credential' | 'update_credential' | 'delete_credential';
+    palletName: string;
+    extrinsicName: string;
+    parameters: Record<string, any>;
+    estimatedFee?: string;
+    credentialData?: CredentialMetadata;
+    credentialId?: string;
+    updates?: {
+        visibility?: 'public' | 'private';
+        proof_hash?: string;
+    };
+}
 
 interface TransactionPreviewProps {
     open: boolean;
     onClose: () => void;
     onConfirm: () => void;
-    credentialData: CredentialMetadata;
-    accountAddress: string;
-    isSubmitting: boolean;
-    estimatedFee?: string;
-    networkName?: string;
+    onCancel: () => void;
+    transactionDetails?: TransactionDetails;
+    isLoading?: boolean;
+    error?: string;
 }
 
 export function TransactionPreview({
     open,
     onClose,
     onConfirm,
-    credentialData,
-    accountAddress,
-    isSubmitting,
-    estimatedFee = '< 0.01 DOT',
-    networkName = 'Paseo Testnet',
+    onCancel,
+    transactionDetails,
+    isLoading = false,
+    error,
 }: TransactionPreviewProps) {
-    const formatAddress = (address: string) => {
-        return `${address.slice(0, 6)}...${address.slice(-6)}`;
+    const { selectedAccount } = useWallet();
+    const [networkInfo, setNetworkInfo] = useState<any>(null);
+    const [loadingNetwork, setLoadingNetwork] = useState(true);
+
+    // Load network information
+    useEffect(() => {
+        if (open) {
+            loadNetworkInfo();
+        }
+    }, [open]);
+
+    const loadNetworkInfo = async () => {
+        try {
+            setLoadingNetwork(true);
+            const info = await getNetworkInfo();
+            setNetworkInfo(info);
+        } catch (error) {
+            console.error('Failed to load network info:', error);
+        } finally {
+            setLoadingNetwork(false);
+        }
     };
 
-    const getCredentialTypeColor = (type: string) => {
-        const colors = {
-            skill: '#2196f3',
-            review: '#4caf50',
-            payment: '#ff9800',
-            certification: '#9c27b0',
-        };
-        return colors[type as keyof typeof colors] || '#757575';
+    // Format transaction type for display
+    const getTransactionTypeInfo = () => {
+        if (!transactionDetails || !transactionDetails.type) {
+            return {
+                title: 'Loading Transaction',
+                description: 'Preparing transaction details...',
+                color: 'default' as const,
+                icon: '⏳',
+            };
+        }
+
+        switch (transactionDetails.type) {
+            case 'mint_credential':
+                return {
+                    title: 'Mint Credential NFT',
+                    description: 'Create a new soulbound credential NFT on the blockchain',
+                    color: 'success' as const,
+                    icon: '🎯',
+                };
+            case 'update_credential':
+                return {
+                    title: 'Update Credential',
+                    description: 'Modify credential visibility or add proof hash',
+                    color: 'info' as const,
+                    icon: '✏️',
+                };
+            case 'delete_credential':
+                return {
+                    title: 'Delete Credential',
+                    description: 'Permanently remove credential from blockchain',
+                    color: 'error' as const,
+                    icon: '🗑️',
+                };
+            default:
+                return {
+                    title: 'Unknown Transaction',
+                    description: 'Unknown transaction type',
+                    color: 'default' as const,
+                    icon: '❓',
+                };
+        }
     };
+
+    const typeInfo = getTransactionTypeInfo();
+
+    // Format parameters for display
+    const formatParameterValue = (key: string, value: any): string => {
+        if (key === 'metadata_json' && typeof value === 'object') {
+            return JSON.stringify(value, null, 2);
+        }
+
+        if (key === 'visibility' && Array.isArray(value)) {
+            return new TextDecoder().decode(new Uint8Array(value));
+        }
+
+        if (typeof value === 'object') {
+            return JSON.stringify(value);
+        }
+
+        return String(value);
+    };
+
+    // Security warnings
+    const getSecurityWarnings = (): string[] => {
+        const warnings: string[] = [];
+
+        if (!transactionDetails) {
+            return warnings;
+        }
+
+        if (transactionDetails.type === 'mint_credential') {
+            warnings.push('This will create a permanent, non-transferable NFT on the blockchain');
+            warnings.push('Credential data will be publicly visible on-chain');
+
+            if (transactionDetails.credentialData?.visibility === 'private') {
+                warnings.push('Private credentials are still stored on-chain but excluded from public sharing');
+            }
+        }
+
+        if (transactionDetails.type === 'delete_credential') {
+            warnings.push('This action cannot be undone - the credential will be permanently deleted');
+        }
+
+        if (transactionDetails.estimatedFee) {
+            const fee = parseFloat(transactionDetails.estimatedFee);
+            if (fee > 0.1) {
+                warnings.push(`High transaction fee: ${transactionDetails.estimatedFee} DOT`);
+            }
+        }
+
+        return warnings;
+    };
+
+    const securityWarnings = getSecurityWarnings();
 
     return (
         <Dialog
@@ -63,202 +187,264 @@ export function TransactionPreview({
             maxWidth="md"
             fullWidth
             PaperProps={{
-                sx: { borderRadius: 2 }
+                sx: { minHeight: '60vh' }
             }}
         >
             <DialogTitle>
-                <Box display="flex" alignItems="center">
-                    <SecurityIcon sx={{ mr: 1, color: 'primary.main' }} />
-                    <Typography variant="h6">
-                        Transaction Preview
-                    </Typography>
+                <Box display="flex" alignItems="center" gap={2}>
+                    <SecurityIcon color="primary" />
+                    <Box>
+                        <Typography variant="h6">
+                            Transaction Security Review
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Please review the transaction details before signing
+                        </Typography>
+                    </Box>
                 </Box>
-                <Typography variant="body2" color="text.secondary">
-                    Review the transaction details before signing
-                </Typography>
             </DialogTitle>
 
             <DialogContent>
-                <Alert severity="info" sx={{ mb: 3 }}>
-                    <Typography variant="body2">
-                        You are about to mint a credential NFT on the {networkName}.
-                        This action is irreversible and will create a permanent record on the blockchain.
-                    </Typography>
-                </Alert>
+                {error && (
+                    <Alert severity="error" sx={{ mb: 3 }}>
+                        {error}
+                    </Alert>
+                )}
 
-                {/* Transaction Details */}
-                <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
-                    <Box display="flex" alignItems="center" mb={2}>
-                        <ReceiptIcon sx={{ mr: 1, color: 'primary.main' }} />
-                        <Typography variant="h6">Transaction Details</Typography>
-                    </Box>
-
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                            <Typography variant="body2" color="text.secondary">
-                                Function Call
+                {/* Transaction Type */}
+                <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Box display="flex" alignItems="center" gap={2} mb={2}>
+                            <Typography variant="h2" sx={{ fontSize: '2rem' }}>
+                                {typeInfo.icon}
                             </Typography>
-                            <Typography variant="body1" fontWeight="medium">
-                                freelanceCredentials.mintCredential
-                            </Typography>
-                        </Grid>
-
-                        <Grid item xs={12} sm={6}>
-                            <Typography variant="body2" color="text.secondary">
-                                Network
-                            </Typography>
-                            <Typography variant="body1" fontWeight="medium">
-                                {networkName}
-                            </Typography>
-                        </Grid>
-
-                        <Grid item xs={12} sm={6}>
-                            <Typography variant="body2" color="text.secondary">
-                                From Account
-                            </Typography>
-                            <Typography variant="body1" fontWeight="medium">
-                                {formatAddress(accountAddress)}
-                            </Typography>
-                        </Grid>
-
-                        <Grid item xs={12} sm={6}>
-                            <Typography variant="body2" color="text.secondary">
-                                Estimated Fee
-                            </Typography>
-                            <Typography variant="body1" fontWeight="medium" color="primary.main">
-                                {estimatedFee}
-                            </Typography>
-                        </Grid>
-                    </Grid>
-                </Paper>
-
-                {/* Credential Data */}
-                <Paper sx={{ p: 2, mb: 3 }}>
-                    <Box display="flex" alignItems="center" mb={2}>
-                        <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
-                        <Typography variant="h6">Credential Data</Typography>
-                    </Box>
-
-                    <Grid container spacing={2}>
-                        <Grid item xs={12}>
-                            <Box display="flex" alignItems="center" gap={1} mb={2}>
+                            <Box>
+                                <Typography variant="h6">
+                                    {typeInfo.title}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {typeInfo.description}
+                                </Typography>
+                            </Box>
+                            <Box ml="auto">
                                 <Chip
-                                    label={credentialData.credential_type.toUpperCase()}
-                                    sx={{
-                                        bgcolor: getCredentialTypeColor(credentialData.credential_type),
-                                        color: 'white',
-                                        fontWeight: 'bold',
-                                    }}
+                                    label={transactionDetails?.type?.replace('_', ' ').toUpperCase() || 'LOADING'}
+                                    color={typeInfo.color}
                                     size="small"
-                                />
-                                <Chip
-                                    label={credentialData.visibility.toUpperCase()}
-                                    variant="outlined"
-                                    size="small"
-                                    color={credentialData.visibility === 'public' ? 'success' : 'warning'}
                                 />
                             </Box>
-                        </Grid>
+                        </Box>
+                    </CardContent>
+                </Card>
 
-                        <Grid item xs={12} sm={6}>
-                            <Typography variant="body2" color="text.secondary">
-                                Name
+                {/* Network Information */}
+                <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Box display="flex" alignItems="center" gap={1} mb={2}>
+                            <AccountBalanceIcon color="primary" />
+                            <Typography variant="h6">
+                                Network Information
                             </Typography>
-                            <Typography variant="body1" fontWeight="medium">
-                                {credentialData.name}
-                            </Typography>
-                        </Grid>
+                        </Box>
 
-                        <Grid item xs={12} sm={6}>
-                            <Typography variant="body2" color="text.secondary">
-                                Issuer
-                            </Typography>
-                            <Typography variant="body1" fontWeight="medium">
-                                {credentialData.issuer}
-                            </Typography>
-                        </Grid>
+                        {loadingNetwork ? (
+                            <Box display="flex" alignItems="center" gap={2}>
+                                <CircularProgress size={20} />
+                                <Typography variant="body2">Loading network info...</Typography>
+                            </Box>
+                        ) : networkInfo ? (
+                            <Grid container spacing={2}>
+                                <Grid item xs={6}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Network
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {networkInfo.chainName}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Endpoint
+                                    </Typography>
+                                    <Typography variant="body1" sx={{ wordBreak: 'break-all' }}>
+                                        {networkInfo.endpoint}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Account
+                                    </Typography>
+                                    <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                                        {selectedAccount?.address}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Estimated Fee
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {transactionDetails?.estimatedFee || '< 0.01'} DOT
+                                    </Typography>
+                                </Grid>
+                            </Grid>
+                        ) : (
+                            <Alert severity="warning">
+                                Failed to load network information
+                            </Alert>
+                        )}
+                    </CardContent>
+                </Card>
 
-                        <Grid item xs={12}>
-                            <Typography variant="body2" color="text.secondary">
-                                Description
+                {/* Transaction Details */}
+                <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Box display="flex" alignItems="center" gap={1} mb={2}>
+                            <ReceiptIcon color="primary" />
+                            <Typography variant="h6">
+                                Transaction Details
                             </Typography>
-                            <Typography variant="body1">
-                                {credentialData.description}
-                            </Typography>
-                        </Grid>
+                        </Box>
 
-                        {credentialData.rating && (
-                            <Grid item xs={12} sm={6}>
+                        <Grid container spacing={2} mb={2}>
+                            <Grid item xs={6}>
                                 <Typography variant="body2" color="text.secondary">
-                                    Rating
+                                    Pallet
                                 </Typography>
-                                <Typography variant="body1" fontWeight="medium">
-                                    {credentialData.rating}/5 stars
+                                <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
+                                    {transactionDetails?.palletName || 'Loading...'}
                                 </Typography>
                             </Grid>
-                        )}
-
-                        {credentialData.proof_hash && (
-                            <Grid item xs={12}>
+                            <Grid item xs={6}>
                                 <Typography variant="body2" color="text.secondary">
-                                    Proof Document Hash
+                                    Extrinsic
                                 </Typography>
-                                <Typography
-                                    variant="body2"
-                                    fontFamily="monospace"
-                                    sx={{
-                                        wordBreak: 'break-all',
-                                        bgcolor: 'grey.100',
-                                        p: 1,
-                                        borderRadius: 1,
-                                    }}
-                                >
-                                    {credentialData.proof_hash}
+                                <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
+                                    {transactionDetails?.extrinsicName || 'Loading...'}
                                 </Typography>
                             </Grid>
-                        )}
-                    </Grid>
-                </Paper>
+                        </Grid>
 
-                {/* Storage Information */}
-                <Alert severity="info" icon={<AccountBalanceIcon />}>
-                    <Typography variant="body2">
-                        <strong>Storage Details:</strong> This credential will be stored permanently on the blockchain.
-                        The metadata size is {JSON.stringify(credentialData).length} bytes
-                        (limit: 4,096 bytes). {credentialData.proof_hash ?
-                            'The proof document hash ensures document integrity without storing the full file on-chain.' :
-                            'No proof document attached.'
-                        }
-                    </Typography>
-                </Alert>
+                        {/* Credential Data Preview */}
+                        {transactionDetails?.credentialData && (
+                            <Accordion>
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Typography variant="body2">
+                                        Credential Data ({JSON.stringify(transactionDetails?.credentialData || {}).length} bytes)
+                                    </Typography>
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
+                                        <Typography variant="body2" component="pre" sx={{
+                                            fontFamily: 'monospace',
+                                            fontSize: '0.75rem',
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
+                                        }}>
+                                            {JSON.stringify(transactionDetails?.credentialData || {}, null, 2)}
+                                        </Typography>
+                                    </Box>
+                                </AccordionDetails>
+                            </Accordion>
+                        )}
+
+                        {/* Update Details */}
+                        {transactionDetails?.updates && (
+                            <Box mt={2}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    Updates
+                                </Typography>
+                                {transactionDetails?.updates?.visibility && (
+                                    <Typography variant="body2">
+                                        • Visibility: {transactionDetails.updates.visibility}
+                                    </Typography>
+                                )}
+                                {transactionDetails?.updates?.proof_hash && (
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                        • Proof Hash: {transactionDetails.updates.proof_hash}
+                                    </Typography>
+                                )}
+                            </Box>
+                        )}
+
+                        {/* Raw Parameters */}
+                        {transactionDetails?.parameters && Object.keys(transactionDetails.parameters).length > 0 && (
+                            <Accordion sx={{ mt: 2 }}>
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Typography variant="body2">
+                                        Raw Parameters
+                                    </Typography>
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
+                                        {Object.entries(transactionDetails?.parameters || {}).map(([key, value]) => (
+                                            <Box key={key} mb={1}>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {key}:
+                                                </Typography>
+                                                <Typography variant="body2" component="pre" sx={{
+                                                    fontFamily: 'monospace',
+                                                    fontSize: '0.75rem',
+                                                    ml: 1,
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-word',
+                                                }}>
+                                                    {formatParameterValue(key, value)}
+                                                </Typography>
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                </AccordionDetails>
+                            </Accordion>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Security Warnings */}
+                {securityWarnings.length > 0 && (
+                    <Alert severity="warning" sx={{ mb: 3 }}>
+                        <Box display="flex" alignItems="flex-start" gap={1}>
+                            <WarningIcon sx={{ mt: 0.5 }} />
+                            <Box>
+                                <Typography variant="body2" fontWeight="medium" gutterBottom>
+                                    Security Considerations
+                                </Typography>
+                                {securityWarnings.map((warning, index) => (
+                                    <Typography key={index} variant="body2" component="div">
+                                        • {warning}
+                                    </Typography>
+                                ))}
+                            </Box>
+                        </Box>
+                    </Alert>
+                )}
 
                 <Divider sx={{ my: 2 }} />
 
-                {/* Security Notice */}
-                <Alert severity="warning">
+                <Alert severity="info">
                     <Typography variant="body2">
-                        <strong>Important:</strong> Once minted, this credential NFT will be permanently bound to your account
-                        (soulbound) and cannot be transferred. You can update its visibility or delete it, but the blockchain
-                        record will remain immutable.
+                        By confirming this transaction, you acknowledge that you have reviewed the details above
+                        and understand the implications of this blockchain operation. This transaction will be
+                        signed with your wallet and cannot be reversed once confirmed.
                     </Typography>
                 </Alert>
             </DialogContent>
 
             <DialogActions sx={{ p: 3, pt: 0 }}>
                 <Button
-                    onClick={onClose}
-                    disabled={isSubmitting}
-                    variant="outlined"
+                    onClick={onCancel}
+                    disabled={isLoading}
+                    size="large"
                 >
                     Cancel
                 </Button>
                 <Button
                     onClick={onConfirm}
-                    disabled={isSubmitting}
                     variant="contained"
-                    startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
+                    disabled={isLoading || !!error}
+                    startIcon={isLoading ? <CircularProgress size={20} /> : undefined}
+                    size="large"
                 >
-                    {isSubmitting ? 'Signing Transaction...' : 'Sign & Submit'}
+                    {isLoading ? 'Processing...' : 'Sign Transaction'}
                 </Button>
             </DialogActions>
         </Dialog>

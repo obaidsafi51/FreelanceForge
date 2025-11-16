@@ -165,15 +165,14 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Update an existing credential's visibility or proof hash
+		/// Update an existing credential with new metadata
 		///
-		/// This function allows the credential owner to modify certain aspects of their credential
-		/// after minting, specifically the visibility setting and proof document hash.
+		/// For MVP simplicity, this replaces the entire metadata rather than
+		/// parsing and updating individual fields.
 		///
 		/// Parameters:
 		/// - `credential_id`: Hash of the credential to update
-		/// - `visibility`: Optional new visibility setting ("public" or "private")
-		/// - `proof_hash`: Optional SHA256 hash of supporting document
+		/// - `new_metadata`: Complete updated metadata JSON
 		///
 		/// Emits:
 		/// - `CredentialUpdated` event with credential_id and owner
@@ -187,77 +186,30 @@ pub mod pallet {
 		pub fn update_credential(
 			origin: OriginFor<T>,
 			credential_id: T::Hash,
-			visibility: Option<Vec<u8>>,
-			proof_hash: Option<T::Hash>,
+			new_metadata: Vec<u8>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			// Get existing credential
-			let (owner, mut metadata) = Credentials::<T>::get(&credential_id)
+			let (owner, _old_metadata) = Credentials::<T>::get(&credential_id)
 				.ok_or(Error::<T>::CredentialNotFound)?;
 
 			// Verify ownership
 			ensure!(owner == who, Error::<T>::NotCredentialOwner);
 
-			// For MVP, we'll create a simple update mechanism
-			// In production, you would parse JSON and update specific fields
-			let mut updated = false;
-			let mut new_metadata: Vec<u8> = metadata.to_vec();
+			// Validate new metadata size (4KB limit)
+			let bounded_metadata: BoundedVec<u8, ConstU32<4096>> = new_metadata
+				.try_into()
+				.map_err(|_| Error::<T>::MetadataTooLarge)?;
 
-			if let Some(vis) = visibility {
-				// Simple approach: append visibility info to metadata
-				let vis_update = b",\"visibility\":\"";
-				let vis_end = b"\"";
-				
-				// Check if we have enough space
-				let needed_space = vis_update.len() + vis.len() + vis_end.len();
-				if new_metadata.len() + needed_space <= 4096 {
-					new_metadata.extend_from_slice(vis_update);
-					new_metadata.extend_from_slice(&vis);
-					new_metadata.extend_from_slice(vis_end);
-					updated = true;
-				} else {
-					return Err(Error::<T>::MetadataTooLarge.into());
-				}
-			}
+			// Update storage with new metadata
+			Credentials::<T>::insert(&credential_id, (&who, &bounded_metadata));
 
-			if let Some(hash) = proof_hash {
-				// Convert hash to hex string and append
-				let hash_bytes = hash.as_ref();
-				let proof_prefix = b",\"proof_hash\":\"";
-				let proof_suffix = b"\"";
-				
-				// Check if we have enough space (32 bytes * 2 for hex + prefix/suffix)
-				let needed_space = proof_prefix.len() + (hash_bytes.len() * 2) + proof_suffix.len();
-				if new_metadata.len() + needed_space <= 4096 {
-					new_metadata.extend_from_slice(proof_prefix);
-					for byte in hash_bytes {
-						let hex = format!("{:02x}", byte);
-						new_metadata.extend_from_slice(hex.as_bytes());
-					}
-					new_metadata.extend_from_slice(proof_suffix);
-					updated = true;
-				} else {
-					return Err(Error::<T>::MetadataTooLarge.into());
-				}
-			}
-
-			// Convert back to BoundedVec
-			if updated {
-				metadata = new_metadata.try_into()
-					.map_err(|_| Error::<T>::MetadataTooLarge)?;
-			}
-
-			if updated {
-				// Update storage
-				Credentials::<T>::insert(&credential_id, (&owner, &metadata));
-
-				// Emit event
-				Self::deposit_event(Event::CredentialUpdated {
-					credential_id,
-					owner: who,
-				});
-			}
+			// Emit event
+			Self::deposit_event(Event::CredentialUpdated {
+				credential_id,
+				owner: who,
+			});
 
 			Ok(())
 		}

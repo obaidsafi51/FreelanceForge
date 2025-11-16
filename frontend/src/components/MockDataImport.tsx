@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -19,13 +19,21 @@ import {
     Edit as ManualIcon,
     PlayArrow as StartIcon,
     Info as InfoIcon,
+    Security as SecurityIcon,
+    Warning as WarningIcon,
 } from '@mui/icons-material';
 import { MockDataUpload } from './MockDataUpload';
 import { ManualCredentialEntry } from './ManualCredentialEntry';
 import { CredentialPreview } from './CredentialPreview';
 import { BatchMintProgress, type BatchMintProgress as BatchMintProgressType, type BatchMintResult } from './BatchMintProgress';
-import { useMintCredential } from '../hooks/useCredentials';
+import { useMintCredential, useCredentials } from '../hooks/useCredentials';
 import { useWallet } from '../contexts/WalletContext';
+import {
+    InputSanitizer,
+    credentialMetadataSchema,
+    RateLimiter,
+    CredentialLimitValidator
+} from '../utils/security';
 import type { CredentialMetadata } from '../utils/api';
 
 interface MockDataImportProps {
@@ -34,6 +42,7 @@ interface MockDataImportProps {
 
 export function MockDataImport({ onComplete }: MockDataImportProps) {
     const { selectedAccount } = useWallet();
+    const { data: existingCredentials = [] } = useCredentials(selectedAccount?.address || null);
     const mintCredentialMutation = useMintCredential();
 
     // UI State
@@ -41,6 +50,7 @@ export function MockDataImport({ onComplete }: MockDataImportProps) {
     const [parsedCredentials, setParsedCredentials] = useState<CredentialMetadata[]>([]);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [showBatchProgress, setShowBatchProgress] = useState(false);
+    const [securityWarnings, setSecurityWarnings] = useState<string[]>([]);
 
     // Batch minting state
     const [batchProgress, setBatchProgress] = useState<BatchMintProgressType>({
@@ -68,9 +78,57 @@ export function MockDataImport({ onComplete }: MockDataImportProps) {
 
     // Handle credentials parsed from upload or manual entry
     const handleCredentialsParsed = useCallback((credentials: CredentialMetadata[]) => {
-        setParsedCredentials(credentials);
-        setSuccessMessage(`${credentials.length} credentials ready for minting`);
-    }, []);
+        // Sanitize and validate all credentials
+        const sanitizedCredentials: CredentialMetadata[] = [];
+        const validationErrors: string[] = [];
+        const warnings: string[] = [];
+
+        for (let i = 0; i < credentials.length; i++) {
+            const credential = credentials[i];
+
+            try {
+                // Sanitize the credential data
+                const sanitized = InputSanitizer.sanitizeCredentialMetadata(credential);
+
+                // Validate against schema
+                credentialMetadataSchema.validateSync(sanitized);
+
+                sanitizedCredentials.push(sanitized);
+            } catch (error) {
+                validationErrors.push(`Credential ${i + 1}: ${error instanceof Error ? error.message : 'Invalid data'}`);
+            }
+        }
+
+        // Check batch limits
+        const batchLimitCheck = CredentialLimitValidator.checkBatchLimit(
+            existingCredentials.length,
+            sanitizedCredentials.length
+        );
+
+        if (!batchLimitCheck.allowed) {
+            setErrorMessage(batchLimitCheck.error!);
+            return;
+        }
+
+        if (batchLimitCheck.warning) {
+            warnings.push(batchLimitCheck.warning);
+        }
+
+        // Check rate limits for large batches
+        const rateLimitCheck = RateLimiter.checkRateLimit();
+        if (sanitizedCredentials.length > 10 && !rateLimitCheck.allowed) {
+            warnings.push('Rate limits may prevent immediate batch minting. Consider smaller batches.');
+        }
+
+        if (validationErrors.length > 0) {
+            setErrorMessage(`Validation errors found:\n${validationErrors.join('\n')}`);
+            return;
+        }
+
+        setParsedCredentials(sanitizedCredentials);
+        setSecurityWarnings(warnings);
+        setSuccessMessage(`${sanitizedCredentials.length} credentials validated and ready for minting`);
+    }, [existingCredentials.length]);
 
     // Handle errors
     const handleError = useCallback((error: string) => {
@@ -332,6 +390,24 @@ export function MockDataImport({ onComplete }: MockDataImportProps) {
                                 Large batch detected ({parsedCredentials.length} credentials).
                                 You can pause or stop the process at any time if needed.
                             </Typography>
+                        </Alert>
+                    )}
+
+                    {securityWarnings.length > 0 && (
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            <Box display="flex" alignItems="flex-start" gap={1}>
+                                <SecurityIcon sx={{ mt: 0.5 }} />
+                                <Box>
+                                    <Typography variant="body2" fontWeight="medium" gutterBottom>
+                                        Security Warnings
+                                    </Typography>
+                                    {securityWarnings.map((warning, index) => (
+                                        <Typography key={index} variant="body2" component="div">
+                                            • {warning}
+                                        </Typography>
+                                    ))}
+                                </Box>
+                            </Box>
                         </Alert>
                     )}
 

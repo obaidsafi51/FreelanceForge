@@ -85,12 +85,20 @@ export function useMintCredential() {
       
       return result;
     },
-    onSuccess: (result, variables) => {
+    onSuccess: async (result, variables) => {
       // Show success notification
       addNotification(NotificationTemplates.credentialMinted(variables.credentialData.name));
       
+      // Add a small delay to ensure blockchain state is updated
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // Invalidate and refetch credentials to get the real data
       queryClient.invalidateQueries({ 
+        queryKey: credentialQueryKeys.list(variables.accountAddress) 
+      });
+      
+      // Force a refetch to ensure we get the latest data
+      queryClient.refetchQueries({ 
         queryKey: credentialQueryKeys.list(variables.accountAddress) 
       });
     },
