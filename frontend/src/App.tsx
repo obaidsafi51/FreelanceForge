@@ -1,7 +1,8 @@
 
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, Box } from '@mui/material';
+import { CssBaseline, Box, Alert } from '@mui/material';
 import { WalletProvider } from './contexts/WalletContext';
 import { QueryProvider } from './providers/QueryProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -11,6 +12,7 @@ import { Dashboard } from './pages/Dashboard';
 import { MintCredential } from './pages/MintCredential';
 import { ExportPortfolio } from './pages/ExportPortfolio';
 import { PublicPortfolio } from './pages/PublicPortfolio';
+
 
 // Create Material-UI theme
 const theme = createTheme({
@@ -52,6 +54,8 @@ const theme = createTheme({
 });
 
 function App() {
+
+
   return (
     <ErrorBoundary>
       <NotificationProvider>

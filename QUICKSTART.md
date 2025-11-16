@@ -47,15 +47,13 @@ This starts both:
    - Connect your wallet
    - Start minting credentials!
 
-## 🧪 Verify Everything Works
+## ✅ Verify Everything Works
 
-```bash
-# Check setup
-./verify-setup.sh
+Once both services are running, visit `http://localhost:5173` and:
 
-# Test running application (run this after starting the app)
-./test-local.sh
-```
+- Connect your Polkadot.js wallet
+- Try minting a test credential
+- Check that your trust score updates
 
 ## 🛠️ Development Commands
 
@@ -66,8 +64,7 @@ npm run dev:substrate
 # Start just the frontend
 npm run dev:frontend
 
-# Run tests
-npm run test
+
 
 # Clean build artifacts
 npm run clean
@@ -90,7 +87,7 @@ sudo apt-get install build-essential pkg-config libssl-dev
 **"Permission denied" errors:**
 
 ```bash
-chmod +x setup-and-run.sh verify-setup.sh test-local.sh
+chmod +x setup-and-run.sh
 ```
 
 **Port already in use:**
@@ -114,7 +111,7 @@ sudo kill -9 <PID>
 ### Getting Help
 
 1. **Check logs**: Look at terminal output for error messages
-2. **Verify setup**: Run `./verify-setup.sh`
+2. **Check services**: Ensure both Substrate node and frontend are running
 3. **Clean rebuild**: Run `npm run clean` then `npm run setup`
 4. **Check documentation**: See `docs/` folder for detailed guides
 

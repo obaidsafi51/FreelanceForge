@@ -133,9 +133,19 @@ export function MintCredential() {
       <WalletConnection variant="card" />
 
       {!isConnected ? (
-        <Alert severity="info" sx={{ mt: 3 }}>
-          Please connect your wallet to mint credentials.
-        </Alert>
+        <Box sx={{ mt: 3 }}>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Please connect your wallet to mint credentials on the blockchain.
+          </Alert>
+          <Alert severity="success">
+            <Typography variant="subtitle2" gutterBottom>
+              Want to try without a wallet?
+            </Typography>
+            <Typography variant="body2">
+              Go to <strong>Dashboard → TanStack Query Demo</strong> to test credential minting with mock data (no wallet required).
+            </Typography>
+          </Alert>
+        </Box>
       ) : (
         <Paper sx={{ mt: 3 }}>
           {/* Minting Method Tabs */}
@@ -187,10 +197,19 @@ export function MintCredential() {
           open={showTransactionPreview}
           onClose={handleTransactionCancel}
           onConfirm={handleTransactionConfirm}
-          credentialData={pendingCredential}
-          accountAddress={selectedAccount?.address || ''}
-          isSubmitting={mintCredentialMutation.isPending}
-          networkName="Paseo Testnet"
+          onCancel={handleTransactionCancel}
+          transactionDetails={{
+            type: 'mint_credential',
+            palletName: 'freelanceCredentials',
+            extrinsicName: 'mint_credential',
+            parameters: {
+              metadata_json: pendingCredential,
+              visibility: pendingCredential.visibility || 'public'
+            },
+            credentialData: pendingCredential,
+            estimatedFee: '< 0.01'
+          }}
+          isLoading={mintCredentialMutation.isPending}
         />
       )}
 

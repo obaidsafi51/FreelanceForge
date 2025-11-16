@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
     Box,
     TextField,
@@ -32,6 +32,8 @@ import {
     Payment as PaymentIcon,
     Reviews as ReviewsIcon,
     Preview as PreviewIcon,
+    Security as SecurityIcon,
+    Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -39,6 +41,16 @@ import * as yup from 'yup';
 import { FormLoadingOverlay } from './LoadingStates';
 import { useFormErrorHandler } from '../hooks/useErrorHandler';
 import { useNotifications, NotificationTemplates } from './NotificationSystem';
+import { TransactionPreview, type TransactionDetails } from './TransactionPreview';
+import {
+    InputSanitizer,
+    credentialMetadataSchema,
+    FileValidator,
+    RateLimiter,
+    CredentialLimitValidator
+} from '../utils/security';
+import { useCredentials } from '../hooks/useCredentials';
+import { useWallet } from '../contexts/WalletContext';
 import type { CredentialMetadata } from '../utils/api';
 
 // Form data interface
@@ -51,27 +63,10 @@ interface CredentialFormData {
     visibility: 'public' | 'private';
 }
 
-// Validation schema using Yup
-const credentialSchema = yup.object({
-    credential_type: yup
-        .string()
-        .oneOf(['skill', 'review', 'payment', 'certification'], 'Invalid credential type')
-        .required('Credential type is required'),
-    name: yup
-        .string()
-        .min(1, 'Name is required')
-        .max(100, 'Name must be 100 characters or less')
-        .required('Name is required'),
-    description: yup
-        .string()
-        .min(1, 'Description is required')
-        .max(500, 'Description must be 500 characters or less')
-        .required('Description is required'),
-    issuer: yup
-        .string()
-        .min(1, 'Issuer is required')
-        .max(100, 'Issuer must be 100 characters or less')
-        .required('Issuer is required'),
+// Enhanced validation schema using security utilities
+const credentialSchema = credentialMetadataSchema.pick([
+    'credential_type', 'name', 'description', 'issuer', 'rating', 'visibility'
+]).shape({
     rating: yup
         .number()
         .min(0, 'Rating must be between 0 and 5')
@@ -79,10 +74,6 @@ const credentialSchema = yup.object({
         .nullable()
         .optional()
         .transform((value, originalValue) => originalValue === '' ? null : value),
-    visibility: yup
-        .string()
-        .oneOf(['public', 'private'], 'Invalid visibility setting')
-        .required('Visibility is required'),
 }) as yup.ObjectSchema<CredentialFormData>;
 
 interface CredentialFormProps {
@@ -124,10 +115,26 @@ const credentialTypes = {
 };
 
 export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: CredentialFormProps) {
+    const { selectedAccount } = useWallet();
+    const { data: credentials = [] } = useCredentials(selectedAccount?.address || null);
+
     const [proofFile, setProofFile] = useState<File | null>(null);
     const [proofFileError, setProofFileError] = useState<string | null>(null);
     const [showPreview, setShowPreview] = useState(false);
     const [dragOver, setDragOver] = useState(false);
+    const [showTransactionPreview, setShowTransactionPreview] = useState(false);
+    const [transactionDetails, setTransactionDetails] = useState<TransactionDetails | null>(null);
+    const [rateLimitStatus, setRateLimitStatus] = useState<{
+        allowed: boolean;
+        minuteCount: number;
+        hourCount: number;
+        nextAllowedTime?: number;
+    } | null>(null);
+    const [credentialLimitStatus, setCredentialLimitStatus] = useState<{
+        allowed: boolean;
+        warning?: string;
+        error?: string;
+    } | null>(null);
 
     // Error handling hooks
     const { handleValidationError } = useFormErrorHandler();
@@ -155,31 +162,67 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
     const watchedValues = watch();
     const selectedType = credentialTypes[watchedValues.credential_type as keyof typeof credentialTypes];
 
-    // File upload handling
-    const handleFileUpload = useCallback((file: File) => {
+    // Check rate limits and credential limits on component mount and form changes
+    useEffect(() => {
+        const rateLimitCheck = RateLimiter.checkRateLimit();
+        setRateLimitStatus(rateLimitCheck);
+
+        const credentialLimitCheck = CredentialLimitValidator.checkCredentialLimit(credentials.length);
+        setCredentialLimitStatus(credentialLimitCheck);
+    }, [credentials.length]);
+
+    // Show rate limit warnings
+    useEffect(() => {
+        if (rateLimitStatus) {
+            const warning = RateLimiter.getWarningMessage(
+                rateLimitStatus.minuteCount,
+                rateLimitStatus.hourCount
+            );
+            if (warning) {
+                addNotification({
+                    type: 'warning',
+                    title: 'Rate Limit Warning',
+                    message: warning,
+                    duration: 8000,
+                });
+            }
+        }
+    }, [rateLimitStatus, addNotification]);
+
+    // Show credential limit warnings
+    useEffect(() => {
+        if (credentialLimitStatus?.warning) {
+            addNotification({
+                type: 'warning',
+                title: 'Credential Limit Warning',
+                message: credentialLimitStatus.warning,
+                duration: 8000,
+            });
+        }
+    }, [credentialLimitStatus, addNotification]);
+
+    // Enhanced file upload handling with security validation
+    const handleFileUpload = useCallback(async (file: File) => {
         setProofFileError(null);
 
-        // Validate file size (5MB limit)
-        if (file.size > 5 * 1024 * 1024) {
-            const errorMessage = 'File size must be 5MB or less';
-            setProofFileError(errorMessage);
-            addNotification(NotificationTemplates.fileUploadError(errorMessage));
+        // Security validation
+        const fileValidation = FileValidator.validateFile(file);
+        if (!fileValidation.isValid) {
+            setProofFileError(fileValidation.error!);
+            addNotification(NotificationTemplates.fileUploadError(fileValidation.error!));
             return;
         }
 
-        // Validate file type (allow common document types)
-        const allowedTypes = [
-            'application/pdf',
-            'image/jpeg',
-            'image/png',
-            'image/gif',
-            'text/plain',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        ];
-
-        if (!allowedTypes.includes(file.type)) {
-            const errorMessage = 'Unsupported file type. Please upload PDF, image, or document files.';
+        // Content scanning
+        try {
+            const contentScan = await FileValidator.scanFileContent(file);
+            if (!contentScan.isSafe) {
+                setProofFileError(contentScan.error!);
+                addNotification(NotificationTemplates.fileUploadError(contentScan.error!));
+                return;
+            }
+        } catch (error) {
+            const errorMessage = 'Failed to scan file content for security issues';
             setProofFileError(errorMessage);
             addNotification(NotificationTemplates.fileUploadError(errorMessage));
             return;
@@ -231,6 +274,30 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
 
     const onFormSubmit = async (data: CredentialFormData) => {
         try {
+            // Security checks before proceeding
+            const rateLimitCheck = RateLimiter.checkRateLimit();
+            if (!rateLimitCheck.allowed) {
+                const timeUntilAllowed = RateLimiter.formatTimeUntilAllowed(rateLimitCheck.nextAllowedTime!);
+                addNotification({
+                    type: 'error',
+                    title: 'Rate Limit Exceeded',
+                    message: `Please wait ${timeUntilAllowed} before minting another credential`,
+                    duration: 10000,
+                });
+                return;
+            }
+
+            const credentialLimitCheck = CredentialLimitValidator.checkCredentialLimit(credentials.length);
+            if (!credentialLimitCheck.allowed) {
+                addNotification({
+                    type: 'error',
+                    title: 'Credential Limit Exceeded',
+                    message: credentialLimitCheck.error!,
+                    duration: 10000,
+                });
+                return;
+            }
+
             let proof_hash: string | undefined;
 
             // Calculate proof hash if file is uploaded
@@ -238,8 +305,8 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
                 proof_hash = await calculateFileHash(proofFile);
             }
 
-            // Prepare credential metadata
-            const credentialData: CredentialMetadata = {
+            // Prepare and sanitize credential metadata
+            const rawCredentialData: CredentialMetadata = {
                 credential_type: data.credential_type as 'skill' | 'review' | 'payment' | 'certification',
                 name: data.name,
                 description: data.description,
@@ -250,17 +317,75 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
                 proof_hash,
             };
 
-            await onSubmit(credentialData, proofFile || undefined);
+            // Sanitize input data
+            const credentialData = InputSanitizer.sanitizeCredentialMetadata(rawCredentialData);
+
+            // Validate against schema
+            try {
+                await credentialMetadataSchema.validate(credentialData);
+            } catch (validationError) {
+                addNotification({
+                    type: 'error',
+                    title: 'Validation Error',
+                    message: validationError instanceof Error ? validationError.message : 'Invalid credential data',
+                    duration: 8000,
+                });
+                return;
+            }
+
+            // Show transaction preview for security review
+            const transactionDetails: TransactionDetails = {
+                type: 'mint_credential',
+                palletName: 'freelanceCredentials',
+                extrinsicName: 'mintCredential',
+                parameters: {
+                    metadata_json: credentialData,
+                },
+                estimatedFee: '< 0.01',
+                credentialData,
+            };
+
+            setTransactionDetails(transactionDetails);
+            setShowTransactionPreview(true);
+        } catch (error) {
+            console.error('Form submission error:', error);
+            addNotification({
+                type: 'error',
+                title: 'Submission Error',
+                message: error instanceof Error ? error.message : 'Failed to prepare transaction',
+                duration: 8000,
+            });
+        }
+    };
+
+    // Handle transaction confirmation
+    const handleTransactionConfirm = async () => {
+        if (!transactionDetails?.credentialData) return;
+
+        try {
+            setShowTransactionPreview(false);
+
+            await onSubmit(transactionDetails.credentialData, proofFile || undefined);
+
+            // Record successful action for rate limiting
+            RateLimiter.recordAction();
 
             // Reset form on success
             reset();
             setProofFile(null);
             setProofFileError(null);
             setShowPreview(false);
+            setTransactionDetails(null);
         } catch (error) {
-            console.error('Form submission error:', error);
+            console.error('Transaction error:', error);
             // Error handling is done in the parent component via mutation hooks
         }
+    };
+
+    // Handle transaction cancellation
+    const handleTransactionCancel = () => {
+        setShowTransactionPreview(false);
+        setTransactionDetails(null);
     };
 
     const handleCancel = () => {
@@ -350,6 +475,46 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
             message="Minting credential on blockchain..."
         >
             <Box component="form" onSubmit={handleSubmit(onFormSubmit)}>
+                {/* Security Status Alerts */}
+                {rateLimitStatus && !rateLimitStatus.allowed && (
+                    <Alert severity="error" sx={{ mb: 3 }}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                            <SecurityIcon />
+                            <Box>
+                                <Typography variant="body2" fontWeight="medium">
+                                    Rate Limit Exceeded
+                                </Typography>
+                                <Typography variant="body2">
+                                    You can mint again in {RateLimiter.formatTimeUntilAllowed(rateLimitStatus.nextAllowedTime!)}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    </Alert>
+                )}
+
+                {credentialLimitStatus && !credentialLimitStatus.allowed && (
+                    <Alert severity="error" sx={{ mb: 3 }}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                            <WarningIcon />
+                            <Box>
+                                <Typography variant="body2" fontWeight="medium">
+                                    Credential Limit Reached
+                                </Typography>
+                                <Typography variant="body2">
+                                    {credentialLimitStatus.error}
+                                </Typography>
+                            </Box>
+                        </Box>
+                    </Alert>
+                )}
+
+                {rateLimitStatus && rateLimitStatus.allowed && (
+                    <Alert severity="info" sx={{ mb: 3 }}>
+                        <Typography variant="body2">
+                            Rate Limits: {rateLimitStatus.minuteCount}/10 per minute, {rateLimitStatus.hourCount}/100 per hour
+                        </Typography>
+                    </Alert>
+                )}
                 {/* Credential Type Selection */}
                 <Paper sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h6" gutterBottom>
@@ -622,12 +787,29 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
                     <Button
                         type="submit"
                         variant="contained"
-                        disabled={!isValid || isSubmitting}
-                        startIcon={isSubmitting ? <CircularProgress size={20} /> : undefined}
+                        disabled={
+                            !isValid ||
+                            isSubmitting ||
+                            (rateLimitStatus && !rateLimitStatus.allowed) ||
+                            (credentialLimitStatus && !credentialLimitStatus.allowed)
+                        }
+                        startIcon={isSubmitting ? <CircularProgress size={20} /> : <SecurityIcon />}
                     >
-                        {isSubmitting ? 'Minting...' : 'Mint Credential'}
+                        {isSubmitting ? 'Minting...' : 'Review & Sign Transaction'}
                     </Button>
                 </Box>
+
+                {/* Transaction Preview Dialog */}
+                {transactionDetails && (
+                    <TransactionPreview
+                        open={showTransactionPreview}
+                        onClose={handleTransactionCancel}
+                        onConfirm={handleTransactionConfirm}
+                        onCancel={handleTransactionCancel}
+                        transactionDetails={transactionDetails}
+                        isLoading={isSubmitting}
+                    />
+                )}
             </Box>
         </FormLoadingOverlay>
     );

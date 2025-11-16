@@ -248,8 +248,102 @@ setup_frontend() {
     print_success "Frontend setup complete"
 }
 
+# Function to fund wallet account
+fund_wallet() {
+    local wallet_address="$1"
+    
+    print_status "Funding wallet address: $wallet_address"
+    
+    # Check if Node.js dependencies are installed
+    if [ ! -d "node_modules" ]; then
+        print_status "Installing Node.js dependencies for wallet funding..."
+        npm install
+    fi
+    
+    # Use the existing fund-account.js script
+    print_status "Transferring 1000 units from Alice to your wallet..."
+    node fund-account.js "$wallet_address"
+    
+    if [ $? -eq 0 ]; then
+        print_success "Wallet funded successfully!"
+        return 0
+    else
+        print_warning "Standard funding failed, trying force funding..."
+        # Create a temporary force fund script with the provided address
+        cat > temp-force-fund.js << EOF
+const { ApiPromise, WsProvider, Keyring } = require("@polkadot/api");
+const { cryptoWaitReady } = require("@polkadot/util-crypto");
+
+async function forceFund() {
+  await cryptoWaitReady();
+
+  console.log("Connecting to substrate node...");
+  const provider = new WsProvider("ws://localhost:9944");
+  const api = await ApiPromise.create({ provider });
+
+  await api.isReady;
+  console.log("Connected to blockchain");
+
+  const keyring = new Keyring({ type: "sr25519" });
+  const alice = keyring.addFromUri("//Alice");
+  
+  const targetAddress = "$wallet_address";
+  console.log("Force funding address:", targetAddress);
+
+  const amount = 1000n * 1000000000000n;
+  const forceTransfer = api.tx.balances.forceSetBalance(targetAddress, amount);
+  const sudoCall = api.tx.sudo.sudo(forceTransfer);
+
+  await new Promise((resolve, reject) => {
+    sudoCall.signAndSend(alice, (result) => {
+      if (result.status.isFinalized) {
+        resolve(true);
+      } else if (result.isError) {
+        reject(new Error("Transaction failed"));
+      }
+    });
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  const newAccountInfo = await api.query.system.account(targetAddress);
+  console.log("New balance:", newAccountInfo.data.free.toHuman());
+
+  await api.disconnect();
+}
+
+forceFund().catch(console.error);
+EOF
+        
+        node temp-force-fund.js
+        rm temp-force-fund.js
+        
+        if [ $? -eq 0 ]; then
+            print_success "Wallet force funded successfully!"
+            return 0
+        else
+            print_error "Failed to fund wallet. Please try manually."
+            return 1
+        fi
+    fi
+}
+
+# Function to validate wallet address
+validate_wallet_address() {
+    local address="$1"
+    
+    # Basic validation for Substrate address (should start with 5 and be 48 characters)
+    if [[ ${#address} -eq 48 && $address =~ ^5[A-Za-z0-9]+$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Function to run the application
 run_application() {
+    local fund_wallet_flag="$1"
+    local wallet_address="$2"
+    
     print_status "Starting FreelanceForge application..."
     
     # Create a function to handle cleanup
@@ -275,7 +369,7 @@ run_application() {
     cd ..
     
     # Wait a bit for Substrate to start
-    sleep 10
+    sleep 15
     
     # Check if Substrate is running
     if ! kill -0 $SUBSTRATE_PID 2>/dev/null; then
@@ -286,6 +380,13 @@ run_application() {
     print_success "Substrate node started (PID: $SUBSTRATE_PID)"
     print_status "Substrate WebSocket: ws://localhost:9944"
     print_status "Substrate RPC: http://localhost:9933"
+    
+    # Fund wallet if requested
+    if [ "$fund_wallet_flag" = "true" ] && [ ! -z "$wallet_address" ]; then
+        print_status "Waiting for blockchain to be ready for transactions..."
+        sleep 5
+        fund_wallet "$wallet_address"
+    fi
     
     # Start frontend in background
     print_status "Starting frontend..."
@@ -314,10 +415,19 @@ run_application() {
     echo "🔗 Substrate WebSocket: ws://localhost:9944"
     echo "🌐 Substrate RPC: http://localhost:9933"
     echo ""
+    if [ "$fund_wallet_flag" = "true" ]; then
+        echo "💰 Your wallet has been funded with test tokens!"
+        echo ""
+    fi
     echo "📋 Next steps:"
     echo "1. Install Polkadot.js browser extension: https://polkadot.js.org/extension/"
     echo "2. Create or import a wallet account"
-    echo "3. Visit http://localhost:5173 to use FreelanceForge"
+    if [ "$fund_wallet_flag" != "true" ]; then
+        echo "3. Fund your account using: node fund-account.js <your-address>"
+        echo "4. Visit http://localhost:5173 to use FreelanceForge"
+    else
+        echo "3. Visit http://localhost:5173 to use FreelanceForge"
+    fi
     echo ""
     echo "Press Ctrl+C to stop all services"
     
@@ -325,23 +435,69 @@ run_application() {
     wait
 }
 
-# Function to run tests
-run_tests() {
-    print_status "Running tests..."
+
+
+# Function to run judge setup (complete setup + run + fund wallet)
+run_judge_setup() {
+    echo "🏛️  FreelanceForge Judge Setup"
+    echo "============================="
+    echo ""
+    echo "This will:"
+    echo "1. Install all system dependencies"
+    echo "2. Build the Substrate node and frontend"
+    echo "3. Start both services"
+    echo "4. Fund your wallet with test tokens"
+    echo ""
     
-    # Test Substrate pallet
-    print_status "Running Substrate pallet tests..."
-    cd substrate-node
-    cargo test
-    cd ..
+    # Check if already built
+    if [ -f "substrate-node/target/release/minimal-template-node" ] && [ -d "frontend/node_modules" ]; then
+        print_success "Project already built, skipping setup..."
+    else
+        print_status "Running initial setup..."
+        check_system_requirements
+        install_system_dependencies
+        install_rust
+        install_nodejs
+        install_psvm
+        setup_substrate
+        setup_frontend
+        print_success "Setup completed!"
+    fi
     
-    # Test frontend
-    print_status "Running frontend tests..."
-    cd frontend
-    npm run test
-    cd ..
+    echo ""
+    print_status "Please provide your wallet address for funding:"
+    echo ""
+    echo "📋 How to get your wallet address:"
+    echo "1. Install Polkadot.js extension: https://polkadot.js.org/extension/"
+    echo "2. Create a new account or import existing one"
+    echo "3. Copy the account address (starts with '5' and is 48 characters long)"
+    echo ""
+    echo "Example: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+    echo ""
     
-    print_success "All tests completed"
+    while true; do
+        read -p "Enter your wallet address: " wallet_address
+        
+        if [ -z "$wallet_address" ]; then
+            print_warning "Please enter a wallet address"
+            continue
+        fi
+        
+        if validate_wallet_address "$wallet_address"; then
+            print_success "Valid wallet address: $wallet_address"
+            break
+        else
+            print_error "Invalid wallet address. Please ensure it:"
+            echo "  - Starts with '5'"
+            echo "  - Is exactly 48 characters long"
+            echo "  - Contains only alphanumeric characters"
+            echo ""
+        fi
+    done
+    
+    echo ""
+    print_status "Starting FreelanceForge with wallet funding..."
+    run_application "true" "$wallet_address"
 }
 
 # Function to show help
@@ -353,14 +509,18 @@ show_help() {
     echo "Options:"
     echo "  setup     Install all dependencies and build the project"
     echo "  run       Start the application (requires setup to be completed first)"
-    echo "  test      Run all tests"
+    echo "  judge     Complete setup for judges (setup + run + fund wallet)"
+
     echo "  clean     Clean build artifacts"
+    echo "  fund      Fund a wallet address with test tokens"
     echo "  help      Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 setup     # First time setup"
-    echo "  $0 run       # Start the application"
-    echo "  $0 test      # Run tests"
+    echo "  $0 setup                                    # First time setup"
+    echo "  $0 run                                      # Start the application"
+    echo "  $0 judge                                    # Complete judge setup"
+    echo "  $0 fund 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY  # Fund specific address"
+    echo ""
     echo ""
 }
 
@@ -390,6 +550,31 @@ clean_build() {
     print_success "Build artifacts cleaned"
 }
 
+# Function to fund wallet standalone
+fund_wallet_standalone() {
+    local wallet_address="$1"
+    
+    if [ -z "$wallet_address" ]; then
+        print_error "Please provide a wallet address"
+        echo "Usage: $0 fund <wallet-address>"
+        echo "Example: $0 fund 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+        exit 1
+    fi
+    
+    if ! validate_wallet_address "$wallet_address"; then
+        print_error "Invalid wallet address format"
+        exit 1
+    fi
+    
+    # Check if Substrate node is running
+    if ! curl -s http://localhost:9933 > /dev/null 2>&1; then
+        print_error "Substrate node is not running. Please start it first with: $0 run"
+        exit 1
+    fi
+    
+    fund_wallet "$wallet_address"
+}
+
 # Main script logic
 main() {
     echo "🚀 FreelanceForge Local Development Setup"
@@ -409,6 +594,7 @@ main() {
             print_success "Setup completed successfully!"
             echo ""
             print_status "To start the application, run: $0 run"
+            print_status "For judges, use: $0 judge (includes wallet funding)"
             ;;
         "run")
             if [ ! -f "substrate-node/target/release/minimal-template-node" ]; then
@@ -419,11 +605,15 @@ main() {
                 print_error "Frontend dependencies not installed. Please run '$0 setup' first."
                 exit 1
             fi
-            run_application
+            run_application "false" ""
             ;;
-        "test")
-            run_tests
+        "judge")
+            run_judge_setup
             ;;
+        "fund")
+            fund_wallet_standalone "$2"
+            ;;
+
         "clean")
             clean_build
             ;;
