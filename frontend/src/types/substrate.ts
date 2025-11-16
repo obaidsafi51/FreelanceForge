@@ -59,8 +59,7 @@ export interface FreelanceCredentialsCall extends Codec {
   readonly isUpdateCredential: boolean;
   readonly asUpdateCredential: {
     readonly credentialId: H256;
-    readonly visibility: Option<Bytes>;
-    readonly proofHash: Option<H256>;
+    readonly newMetadata: Bytes;
   };
   readonly isDeleteCredential: boolean;
   readonly asDeleteCredential: {
@@ -96,10 +95,9 @@ declare module '@polkadot/api-base/types/submittable' {
       updateCredential: AugmentedSubmittable<
         (
           credentialId: H256 | string | Uint8Array,
-          visibility: Option<Bytes> | null | Uint8Array | Bytes | string,
-          proofHash: Option<H256> | null | Uint8Array | H256 | string
+          newMetadata: Bytes | string | Uint8Array
         ) => any,
-        [H256, Option<Bytes>, Option<H256>]
+        [H256, Bytes]
       >;
       deleteCredential: AugmentedSubmittable<
         (credentialId: H256 | string | Uint8Array) => any,
