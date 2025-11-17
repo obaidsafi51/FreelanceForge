@@ -194,17 +194,20 @@ function NotificationContainer() {
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     TransitionComponent={SlideTransition}
                     sx={{
-                        // Stack notifications vertically
-                        bottom: `${16 + index * 80}px !important`,
+                        // Stack notifications vertically with proper spacing
+                        bottom: `${16 + index * 100}px !important`,
                         zIndex: 1400 + index,
+                        position: 'fixed',
                     }}
                 >
                     <Alert
                         severity={notification.type}
                         variant="filled"
                         sx={{
-                            minWidth: 300,
-                            maxWidth: 500,
+                            minWidth: 320,
+                            maxWidth: 480,
+                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                            borderRadius: 2,
                             '& .MuiAlert-message': {
                                 width: '100%',
                             },

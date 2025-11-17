@@ -49,6 +49,8 @@ import {
     RateLimiter,
     CredentialLimitValidator
 } from '../utils/security';
+
+
 import { useCredentials } from '../hooks/useCredentials';
 import { useWallet } from '../contexts/WalletContext';
 import type { CredentialMetadata } from '../utils/api';
@@ -526,7 +528,29 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
                         render={({ field }) => (
                             <FormControl fullWidth error={!!errors.credential_type}>
                                 <InputLabel>Type</InputLabel>
-                                <Select {...field} label="Type">
+                                <Select
+                                    {...field}
+                                    label="Type"
+                                    MenuProps={{
+                                        PaperProps: {
+                                            sx: {
+                                                maxHeight: 300,
+                                                '& .MuiMenuItem-root': {
+                                                    py: 1.5,
+                                                },
+                                            },
+                                        },
+                                        anchorOrigin: {
+                                            vertical: 'bottom',
+                                            horizontal: 'left',
+                                        },
+                                        transformOrigin: {
+                                            vertical: 'top',
+                                            horizontal: 'left',
+                                        },
+                                        disablePortal: true,
+                                    }}
+                                >
                                     {Object.entries(credentialTypes).map(([key, config]) => (
                                         <MenuItem key={key} value={key}>
                                             <Box display="flex" alignItems="center">
@@ -595,6 +619,8 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
                                 )}
                             />
                         </Grid>
+
+
 
                         <Grid item xs={12} sm={6}>
                             <Controller
@@ -790,8 +816,8 @@ export function CredentialForm({ onSubmit, isSubmitting = false, onCancel }: Cre
                         disabled={
                             !isValid ||
                             isSubmitting ||
-                            (rateLimitStatus && !rateLimitStatus.allowed) ||
-                            (credentialLimitStatus && !credentialLimitStatus.allowed)
+                            (rateLimitStatus ? !rateLimitStatus.allowed : false) ||
+                            (credentialLimitStatus ? !credentialLimitStatus.allowed : false)
                         }
                         startIcon={isSubmitting ? <CircularProgress size={20} /> : <SecurityIcon />}
                     >

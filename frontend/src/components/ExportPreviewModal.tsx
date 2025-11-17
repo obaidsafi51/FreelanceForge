@@ -70,7 +70,11 @@ export function ExportPreviewModal({
                 {exportData ? (
                     <Box>
                         {/* Export Summary */}
-                        <Paper sx={{ p: 3, mb: 3, bgcolor: 'grey.50' }}>
+                        <Paper sx={{
+                            p: 3,
+                            mb: 3,
+                            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.50'
+                        }}>
                             <Typography variant="h6" gutterBottom>
                                 Export Summary
                             </Typography>
@@ -83,9 +87,11 @@ export function ExportPreviewModal({
                                             Wallet Address
                                         </Typography>
                                     </Box>
-                                    <Typography variant="body1" fontFamily="monospace" fontSize="0.875rem">
-                                        {exportData.wallet_address}
-                                    </Typography>
+                                    <Tooltip title={exportData.wallet_address} arrow>
+                                        <Typography variant="body1" fontFamily="monospace" fontSize="0.875rem" sx={{ cursor: 'help' }}>
+                                            {`${exportData.wallet_address.slice(0, 6)}...${exportData.wallet_address.slice(-6)}`}
+                                        </Typography>
+                                    </Tooltip>
                                 </Grid>
 
                                 <Grid item xs={12} sm={6}>
@@ -207,8 +213,8 @@ export function ExportPreviewModal({
                                 variant="outlined"
                                 sx={{
                                     p: 2,
-                                    bgcolor: 'grey.900',
-                                    color: 'grey.100',
+                                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                                    color: (theme) => theme.palette.mode === 'dark' ? 'grey.100' : 'grey.900',
                                     maxHeight: 300,
                                     overflow: 'auto',
                                 }}

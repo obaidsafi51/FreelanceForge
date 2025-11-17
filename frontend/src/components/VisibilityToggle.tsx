@@ -40,6 +40,13 @@ export function VisibilityToggle({
 
         const newVisibility = isPublic ? 'private' : 'public';
 
+        console.log('Toggling visibility for credential:', {
+            credentialId: credential.id,
+            currentVisibility: credential.visibility,
+            newVisibility,
+            walletAddress
+        });
+
         try {
             await updateCredentialMutation.mutateAsync({
                 accountAddress: walletAddress,
@@ -47,6 +54,7 @@ export function VisibilityToggle({
                 updates: {
                     visibility: newVisibility,
                 },
+                credentialName: credential.name,
             });
 
             setShowSuccess(true);

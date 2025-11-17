@@ -84,7 +84,13 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
 
     return (
         <>
-            <Card>
+            <Card sx={{
+                transition: 'box-shadow 0.2s ease-in-out, transform 0.1s ease-in-out',
+                '&:hover': {
+                    boxShadow: 3,
+                    transform: 'translateY(-1px)'
+                }
+            }}>
                 <CardContent>
                     <Box mb={3}>
                         <Typography variant="h5" gutterBottom>
@@ -176,6 +182,12 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
                                 onClick={handleCopyUrl}
                                 color="primary"
                                 title="Copy link"
+                                sx={{
+                                    transition: 'transform 0.15s ease-in-out, background-color 0.2s ease-in-out',
+                                    '&:hover': {
+                                        transform: 'scale(1.1)'
+                                    }
+                                }}
                             >
                                 <CopyIcon />
                             </IconButton>
@@ -184,6 +196,12 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
                                 onClick={handleOpenPortfolio}
                                 color="primary"
                                 title="Open portfolio"
+                                sx={{
+                                    transition: 'transform 0.15s ease-in-out, background-color 0.2s ease-in-out',
+                                    '&:hover': {
+                                        transform: 'scale(1.1)'
+                                    }
+                                }}
                             >
                                 <LaunchIcon />
                             </IconButton>
@@ -201,6 +219,13 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
                             startIcon={<QrCodeIcon />}
                             onClick={handleShowQR}
                             disabled={publicCredentials.length === 0}
+                            sx={{
+                                transition: 'transform 0.15s ease-in-out, box-shadow 0.2s ease-in-out',
+                                '&:hover:not(:disabled)': {
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: 4
+                                }
+                            }}
                         >
                             Generate QR Code
                         </Button>
@@ -210,6 +235,12 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
                             startIcon={<LaunchIcon />}
                             onClick={handleOpenPortfolio}
                             disabled={publicCredentials.length === 0}
+                            sx={{
+                                transition: 'transform 0.15s ease-in-out, border-color 0.2s ease-in-out, background-color 0.2s ease-in-out',
+                                '&:hover:not(:disabled)': {
+                                    transform: 'translateY(-2px)'
+                                }
+                            }}
                         >
                             Preview Portfolio
                         </Button>
@@ -232,12 +263,26 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
                                 label={`Wallet: ${formatWalletAddress(walletAddress)}`}
                                 variant="outlined"
                                 size="small"
+                                sx={{
+                                    transition: 'transform 0.15s ease-in-out, box-shadow 0.2s ease-in-out',
+                                    '&:hover': {
+                                        transform: 'translateY(-1px)',
+                                        boxShadow: 1
+                                    }
+                                }}
                             />
 
                             <Chip
                                 label={`${trustScore.tier} Tier (${trustScore.total}/100)`}
-                                color={verificationBadge.badgeColor as any}
+                                color={verificationBadge.badgeColor as unknown}
                                 size="small"
+                                sx={{
+                                    transition: 'transform 0.15s ease-in-out, box-shadow 0.2s ease-in-out',
+                                    '&:hover': {
+                                        transform: 'translateY(-1px)',
+                                        boxShadow: 1
+                                    }
+                                }}
                             />
 
                             {explorerUrl !== '#' && (
@@ -245,6 +290,12 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
                                     size="small"
                                     startIcon={<LaunchIcon />}
                                     onClick={() => window.open(explorerUrl, '_blank')}
+                                    sx={{
+                                        transition: 'transform 0.15s ease-in-out, background-color 0.2s ease-in-out',
+                                        '&:hover': {
+                                            transform: 'translateY(-1px)'
+                                        }
+                                    }}
                                 >
                                     View on Explorer
                                 </Button>
@@ -276,7 +327,12 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
                                 display: 'inline-block',
                                 p: 2,
                                 mb: 2,
-                                backgroundColor: 'white',
+                                backgroundColor: 'background.paper',
+                                transition: 'box-shadow 0.2s ease-in-out, transform 0.15s ease-in-out',
+                                '&:hover': {
+                                    boxShadow: 3,
+                                    transform: 'scale(1.02)'
+                                }
                             }}
                         >
                             <QRCodeSVG
@@ -306,10 +362,27 @@ export function PortfolioSharing({ walletAddress, credentials, trustScore }: Por
                 </DialogContent>
 
                 <DialogActions>
-                    <Button onClick={handleCopyUrl} startIcon={<CopyIcon />}>
+                    <Button
+                        onClick={handleCopyUrl}
+                        startIcon={<CopyIcon />}
+                        sx={{
+                            transition: 'transform 0.15s ease-in-out, background-color 0.2s ease-in-out',
+                            '&:hover': {
+                                transform: 'translateY(-1px)'
+                            }
+                        }}
+                    >
                         Copy Link
                     </Button>
-                    <Button onClick={handleCloseQR}>
+                    <Button
+                        onClick={handleCloseQR}
+                        sx={{
+                            transition: 'transform 0.15s ease-in-out, background-color 0.2s ease-in-out',
+                            '&:hover': {
+                                transform: 'translateY(-1px)'
+                            }
+                        }}
+                    >
                         Close
                     </Button>
                 </DialogActions>
