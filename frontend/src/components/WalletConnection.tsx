@@ -35,9 +35,9 @@ interface WalletConnectionProps {
   showAccountDetails?: boolean;
 }
 
-export function WalletConnection({ 
-  variant = 'button', 
-  showAccountDetails = true 
+export function WalletConnection({
+  variant = 'button',
+  showAccountDetails = true
 }: WalletConnectionProps) {
   const {
     isConnected,
@@ -57,7 +57,7 @@ export function WalletConnection({
     await connectWallet();
   };
 
-  const handleAccountSelect = (account: any) => {
+  const handleAccountSelect = (account: unknown) => {
     selectAccount(account);
     setShowAccountDialog(false);
   };
@@ -68,7 +68,16 @@ export function WalletConnection({
 
   if (variant === 'card' && isConnected && selectedAccount) {
     return (
-      <Card sx={{ mb: 2 }}>
+      <Card
+        sx={{
+          mb: 2,
+          transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: (theme) => theme.shadows[8],
+          },
+        }}
+      >
         <CardContent>
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Box display="flex" alignItems="center" gap={2}>
@@ -82,10 +91,10 @@ export function WalletConnection({
                 <Typography variant="body2" color="text.secondary">
                   {formatAddress(selectedAccount.address)}
                 </Typography>
-                <Chip 
-                  label={selectedAccount.meta.source} 
-                  size="small" 
-                  color="primary" 
+                <Chip
+                  label={selectedAccount.meta.source}
+                  size="small"
+                  color="primary"
                   variant="outlined"
                   sx={{ mt: 0.5 }}
                 />
@@ -94,26 +103,42 @@ export function WalletConnection({
             <Box display="flex" alignItems="center" gap={1}>
               {accounts.length > 1 && (
                 <Tooltip title="Switch Account">
-                  <IconButton 
+                  <IconButton
                     onClick={() => setShowAccountDialog(true)}
                     size="small"
+                    sx={{
+                      transition: 'transform 0.2s ease-in-out, background-color 0.2s ease-in-out',
+                      '&:hover': {
+                        transform: 'scale(1.1)',
+                        backgroundColor: 'primary.main',
+                        color: 'primary.contrastText',
+                      },
+                    }}
                   >
                     <ExpandMore />
                   </IconButton>
                 </Tooltip>
               )}
               <Tooltip title="Disconnect Wallet">
-                <IconButton 
+                <IconButton
                   onClick={disconnectWallet}
                   size="small"
                   color="error"
+                  sx={{
+                    transition: 'transform 0.2s ease-in-out, background-color 0.2s ease-in-out',
+                    '&:hover': {
+                      transform: 'scale(1.1)',
+                      backgroundColor: 'error.main',
+                      color: 'error.contrastText',
+                    },
+                  }}
                 >
                   <ExitToApp />
                 </IconButton>
               </Tooltip>
             </Box>
           </Box>
-          
+
           {showAccountDetails && (
             <Box mt={2}>
               <Button
@@ -121,11 +146,30 @@ export function WalletConnection({
                 size="small"
                 onClick={() => setShowAccountList(!showAccountList)}
                 endIcon={showAccountList ? <ExpandLess /> : <ExpandMore />}
+                sx={{
+                  transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: (theme) => theme.shadows[2],
+                  },
+                }}
               >
                 Account Details
               </Button>
               {showAccountList && (
-                <Box mt={1} p={2} bgcolor="grey.50" borderRadius={1}>
+                <Box
+                  mt={1}
+                  p={2}
+                  sx={{
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.50',
+                    borderRadius: 1,
+                    animation: 'fadeIn 0.3s ease-in-out',
+                    '@keyframes fadeIn': {
+                      from: { opacity: 0, transform: 'translateY(-10px)' },
+                      to: { opacity: 1, transform: 'translateY(0)' },
+                    },
+                  }}
+                >
                   <Typography variant="body2" color="text.secondary">
                     <strong>Full Address:</strong> {selectedAccount.address}
                   </Typography>
@@ -145,8 +189,8 @@ export function WalletConnection({
     <>
       <Box>
         {error && (
-          <Alert 
-            severity="error" 
+          <Alert
+            severity="error"
             sx={{ mb: 2 }}
             icon={<ErrorIcon />}
             action={
@@ -175,6 +219,14 @@ export function WalletConnection({
             sx={{
               minWidth: 200,
               py: 1.5,
+              transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: (theme) => theme.shadows[8],
+              },
+              '&:active': {
+                transform: 'translateY(0px)',
+              },
             }}
           >
             {isConnecting ? 'Connecting...' : 'Connect Wallet'}
@@ -188,12 +240,27 @@ export function WalletConnection({
               variant="outlined"
               onClick={() => accounts.length > 1 && setShowAccountDialog(true)}
               clickable={accounts.length > 1}
+              sx={{
+                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                '&:hover': {
+                  transform: accounts.length > 1 ? 'scale(1.05)' : 'none',
+                  boxShadow: accounts.length > 1 ? (theme) => theme.shadows[4] : 'none',
+                },
+              }}
             />
             <Button
               variant="outlined"
               size="small"
               onClick={disconnectWallet}
               startIcon={<ExitToApp />}
+              sx={{
+                transition: 'transform 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-1px)',
+                  borderColor: 'error.main',
+                  color: 'error.main',
+                },
+              }}
             >
               Disconnect
             </Button>
@@ -202,8 +269,8 @@ export function WalletConnection({
       </Box>
 
       {/* Account Selection Dialog */}
-      <Dialog 
-        open={showAccountDialog} 
+      <Dialog
+        open={showAccountDialog}
         onClose={() => setShowAccountDialog(false)}
         maxWidth="sm"
         fullWidth
@@ -213,9 +280,16 @@ export function WalletConnection({
           <List>
             {accounts.map((account, index) => (
               <ListItem key={account.address} disablePadding>
-                <ListItemButton 
+                <ListItemButton
                   onClick={() => handleAccountSelect(account)}
                   selected={selectedAccount?.address === account.address}
+                  sx={{
+                    transition: 'transform 0.2s ease-in-out, background-color 0.2s ease-in-out',
+                    '&:hover': {
+                      transform: 'translateX(8px)',
+                      backgroundColor: 'action.hover',
+                    },
+                  }}
                 >
                   <ListItemAvatar>
                     <Avatar>
@@ -227,11 +301,11 @@ export function WalletConnection({
                     secondary={
                       <Box>
                         <Typography variant="body2" color="text.secondary">
-                          {account.address}
+                          {formatAddress(account.address)}
                         </Typography>
-                        <Chip 
-                          label={account.meta.source} 
-                          size="small" 
+                        <Chip
+                          label={account.meta.source}
+                          size="small"
                           variant="outlined"
                           sx={{ mt: 0.5 }}
                         />

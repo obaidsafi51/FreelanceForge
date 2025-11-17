@@ -28,14 +28,14 @@ const RECENCY_FACTORS = {
  */
 function calculateReviewScore(credentials: Credential[]): number {
   const reviewCredentials = credentials.filter(c => c.credential_type === 'review' && c.rating);
-  
+
   if (reviewCredentials.length === 0) {
     return 0;
   }
 
   const totalRating = reviewCredentials.reduce((sum, cred) => sum + (cred.rating || 0), 0);
   const averageRating = totalRating / reviewCredentials.length;
-  
+
   // (Average rating / 5) × 100 × 0.6
   return (averageRating / 5) * 100 * WEIGHTS.REVIEW;
 }
@@ -47,16 +47,16 @@ function calculateReviewScore(credentials: Credential[]): number {
 function calculateSkillScore(credentials: Credential[]): number {
   const skillCredentials = credentials.filter(c => c.credential_type === 'skill');
   const certificationCredentials = credentials.filter(c => c.credential_type === 'certification');
-  
+
   // Base skill points: 5 points per skill
   const skillPoints = skillCredentials.length * 5;
-  
+
   // Certification bonus: 10 points per certification
   const certificationBonus = certificationCredentials.length * 10;
-  
+
   // Cap at 100 points before applying weight
   const totalPoints = Math.min(100, skillPoints + certificationBonus);
-  
+
   return totalPoints * WEIGHTS.SKILL;
 }
 
@@ -67,7 +67,7 @@ function calculateRecencyFactor(timestamp: string): number {
   const credentialDate = new Date(timestamp);
   const now = new Date();
   const monthsAgo = (now.getTime() - credentialDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
-  
+
   if (monthsAgo <= 6) {
     return RECENCY_FACTORS.RECENT;
   } else if (monthsAgo <= 12) {
@@ -84,21 +84,21 @@ function calculateRecencyFactor(timestamp: string): number {
 function extractPaymentVolume(credential: Credential): number {
   // Look for dollar amounts in the credential name or description
   const text = `${credential.name} ${credential.description}`.toLowerCase();
-  
+
   // Match patterns like $1000, $1,000, $1000.00, etc.
   const dollarMatch = text.match(/\$[\d,]+(?:\.\d{2})?/);
   if (dollarMatch) {
     const amount = dollarMatch[0].replace(/[$,]/g, '');
     return parseFloat(amount) || 0;
   }
-  
+
   // Match patterns like "1000 USD", "1000 dollars", etc.
   const usdMatch = text.match(/(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:usd|dollars?)/);
   if (usdMatch) {
     const amount = usdMatch[1].replace(/,/g, '');
     return parseFloat(amount) || 0;
   }
-  
+
   // Default fallback - assume some base payment for payment credentials
   return 100; // $100 default
 }
@@ -109,19 +109,19 @@ function extractPaymentVolume(credential: Credential): number {
  */
 function calculatePaymentScore(credentials: Credential[]): number {
   const paymentCredentials = credentials.filter(c => c.credential_type === 'payment');
-  
+
   if (paymentCredentials.length === 0) {
     return 0;
   }
 
   let totalWeightedVolume = 0;
-  
+
   for (const credential of paymentCredentials) {
     const volume = extractPaymentVolume(credential);
     const recencyFactor = calculateRecencyFactor(credential.timestamp);
     totalWeightedVolume += volume * recencyFactor;
   }
-  
+
   // MIN(100, (Total payment volume / $1000) × 10) × 0.10
   const baseScore = Math.min(100, (totalWeightedVolume / 1000) * 10);
   return baseScore * WEIGHTS.PAYMENT;
@@ -150,10 +150,10 @@ export function calculateTrustScore(credentials: Credential[]): TrustScore {
   const reviewScore = calculateReviewScore(credentials);
   const skillScore = calculateSkillScore(credentials);
   const paymentScore = calculatePaymentScore(credentials);
-  
+
   const totalScore = Math.round(reviewScore + skillScore + paymentScore);
   const tier = calculateTier(totalScore);
-  
+
   return {
     total: totalScore,
     tier,
@@ -168,18 +168,18 @@ export function calculateTrustScore(credentials: Credential[]): TrustScore {
 /**
  * Get tier color for UI display
  */
-export function getTierColor(tier: TrustScore['tier']): string {
+export function getTierColor(tier: TrustScore['tier'], isDark?: boolean): string {
   switch (tier) {
     case 'Bronze':
-      return '#CD7F32';
+      return isDark ? '#CD7F32' : '#B8651F';
     case 'Silver':
-      return '#C0C0C0';
+      return isDark ? '#C0C0C0' : '#7A7A7A';
     case 'Gold':
-      return '#FFD700';
+      return isDark ? '#FFD700' : '#E6C200';
     case 'Platinum':
-      return '#E5E4E2';
+      return isDark ? '#B8B8B8' : '#2C2C2C'; // Much more contrasted
     default:
-      return '#9E9E9E';
+      return isDark ? '#9E9E9E' : '#6E6E6E';
   }
 }
 

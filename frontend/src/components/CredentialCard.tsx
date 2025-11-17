@@ -26,6 +26,7 @@ import {
 import { format, formatDistanceToNow } from 'date-fns';
 import { VisibilityToggle } from './VisibilityToggle';
 import { usePerformanceMonitor } from '../utils/performance';
+import { safeParseDate, isRecentDate } from '../utils/dateUtils';
 import type { Credential } from '../types';
 
 interface CredentialCardProps {
@@ -44,6 +45,17 @@ export const CredentialCard = React.memo(function CredentialCard({
 }: CredentialCardProps) {
     const [expanded, setExpanded] = useState(false);
     const theme = useTheme();
+
+    // Early return if credential is invalid
+    if (!credential || typeof credential !== 'object') {
+        console.warn('CredentialCard received invalid credential:', credential);
+        return null;
+    }
+
+    // Debug logging for credential data
+    if (!credential.name || credential.name.trim() === '') {
+        console.warn('CredentialCard received credential with empty name:', credential);
+    }
 
     // Performance monitoring
     usePerformanceMonitor('CredentialCard', [credential.id, expanded]);
@@ -93,25 +105,31 @@ export const CredentialCard = React.memo(function CredentialCard({
                     };
             }
         };
-        return getCredentialConfig(credential.credential_type);
+        return getCredentialConfig(credential.credential_type || 'skill');
     }, [credential.credential_type, theme]);
 
-    // Memoized date calculations
+    // Memoized date calculations with error handling
     const { credentialDate, isRecent, formattedDate, relativeDate } = useMemo(() => {
-        const date = new Date(credential.timestamp);
-        const recent = Date.now() - date.getTime() < 7 * 24 * 60 * 60 * 1000; // 7 days
+        const date = safeParseDate(credential.timestamp);
+        const recent = isRecentDate(credential.timestamp, 7);
+
+        // Check if we got a fallback date (current date) due to invalid timestamp
+        const isValidTimestamp = credential.timestamp &&
+            (typeof credential.timestamp === 'string' || typeof credential.timestamp === 'number') &&
+            !isNaN(safeParseDate(credential.timestamp).getTime());
+
         return {
             credentialDate: date,
             isRecent: recent,
-            formattedDate: format(date, 'PPP'),
-            relativeDate: formatDistanceToNow(date, { addSuffix: true }),
+            formattedDate: isValidTimestamp ? format(date, 'PPP') : 'Unknown date',
+            relativeDate: isValidTimestamp ? formatDistanceToNow(date, { addSuffix: true }) : 'Unknown time',
         };
     }, [credential.timestamp]);
 
     // Memoized description truncation check
     const shouldShowExpandButton = useMemo(() => {
-        return credential.description.length > 100;
-    }, [credential.description.length]);
+        return credential.description && credential.description.length > 100;
+    }, [credential.description]);
 
     return (
         <Box position="relative">
@@ -132,7 +150,7 @@ export const CredentialCard = React.memo(function CredentialCard({
                 sx={{
                     position: 'relative',
                     zIndex: 1,
-                    transition: 'all 0.3s ease-in-out',
+                    transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out, border-color 0.3s ease-in-out',
                     '&:hover': {
                         transform: 'translateY(-2px)',
                         boxShadow: theme.shadows[8],
@@ -177,10 +195,10 @@ export const CredentialCard = React.memo(function CredentialCard({
                             <Box display="flex" alignItems="flex-start" justifyContent="space-between" mb={1}>
                                 <Box flex={1} minWidth={0}>
                                     <Typography variant="h6" component="h3" noWrap>
-                                        {credential.name}
+                                        {credential.name?.trim() || 'Unnamed Credential'}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary" noWrap>
-                                        Issued by {credential.issuer}
+                                        Issued by {credential.issuer?.trim() || 'Unknown Issuer'}
                                     </Typography>
                                 </Box>
 
@@ -231,7 +249,7 @@ export const CredentialCard = React.memo(function CredentialCard({
                                             precision={0.1}
                                         />
                                         <Typography variant="caption" color="text.secondary">
-                                            ({credential.rating.toFixed(1)})
+                                            ({credential.rating ? credential.rating.toFixed(1) : '0.0'})
                                         </Typography>
                                     </Box>
                                 )}
@@ -254,7 +272,7 @@ export const CredentialCard = React.memo(function CredentialCard({
                                     lineHeight: 1.4,
                                 }}
                             >
-                                {credential.description}
+                                {credential.description?.trim() || 'No description available'}
                             </Typography>
 
                             {/* Expand button */}
@@ -292,7 +310,7 @@ export const CredentialCard = React.memo(function CredentialCard({
                                         fontFamily="monospace"
                                         sx={{ wordBreak: 'break-all' }}
                                     >
-                                        {credential.id.slice(0, 16)}...
+                                        {credential.id ? credential.id.slice(0, 16) + '...' : 'Unknown ID'}
                                     </Typography>
                                 </Box>
                                 <Box display="flex" justifyContent="space-between">
@@ -308,9 +326,9 @@ export const CredentialCard = React.memo(function CredentialCard({
                                         Visibility:
                                     </Typography>
                                     <Chip
-                                        label={credential.visibility}
+                                        label={credential.visibility || 'public'}
                                         size="small"
-                                        color={credential.visibility === 'public' ? 'success' : 'default'}
+                                        color={(credential.visibility || 'public') === 'public' ? 'success' : 'default'}
                                     />
                                 </Box>
                                 {credential.proof_hash && (
@@ -323,7 +341,7 @@ export const CredentialCard = React.memo(function CredentialCard({
                                             fontFamily="monospace"
                                             sx={{ wordBreak: 'break-all' }}
                                         >
-                                            {credential.proof_hash.slice(0, 16)}...
+                                            {credential.proof_hash ? credential.proof_hash.slice(0, 16) + '...' : 'No hash'}
                                         </Typography>
                                     </Box>
                                 )}

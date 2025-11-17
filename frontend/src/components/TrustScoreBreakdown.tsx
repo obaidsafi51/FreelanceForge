@@ -61,7 +61,20 @@ export function TrustScoreBreakdown({
     ];
 
     return (
-        <Card elevation={2}>
+        <Card
+            elevation={2}
+            sx={{
+                transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important',
+                willChange: 'transform, box-shadow',
+                '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: (theme) =>
+                        theme.palette.mode === 'dark'
+                            ? '0 12px 40px rgba(0, 0, 0, 0.6)'
+                            : '0 12px 40px rgba(0, 0, 0, 0.15)',
+                },
+            }}
+        >
             <CardContent>
                 <Box display="flex" alignItems="center" gap={1} mb={2}>
                     <Typography variant="h6">
@@ -76,13 +89,45 @@ export function TrustScoreBreakdown({
                 </Box>
 
                 <Grid container spacing={2}>
-                    {breakdownItems.map((item) => (
+                    {breakdownItems.map((item, index) => (
                         <Grid item xs={12} key={item.category}>
-                            <Box>
+                            <Box
+                                sx={{
+                                    p: 2,
+                                    borderRadius: 2,
+                                    transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important',
+                                    willChange: 'transform, box-shadow',
+                                    cursor: 'pointer',
+                                    '&:hover': {
+                                        transform: 'translateX(8px) scale(1.02)',
+                                        backgroundColor: (theme) =>
+                                            theme.palette.mode === 'dark'
+                                                ? 'rgba(255, 255, 255, 0.05)'
+                                                : 'rgba(0, 0, 0, 0.02)',
+                                        boxShadow: `0 4px 12px ${item.color}20`,
+                                        '& .category-icon': {
+                                            transform: 'scale(1.2) rotate(5deg)',
+                                        },
+                                        '& .progress-bar': {
+                                            transform: 'scaleY(1.2)',
+                                        },
+                                        '& .score-text': {
+                                            transform: 'scale(1.05)',
+                                        },
+                                    },
+                                }}
+                            >
                                 {/* Category Header */}
                                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                                     <Box display="flex" alignItems="center" gap={1}>
-                                        <Box sx={{ color: item.color }}>
+                                        <Box
+                                            className="category-icon"
+                                            sx={{
+                                                color: item.color,
+                                                transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important',
+                                                willChange: 'transform',
+                                            }}
+                                        >
                                             {item.icon}
                                         </Box>
                                         <Typography variant="body1" fontWeight="medium">
@@ -97,11 +142,26 @@ export function TrustScoreBreakdown({
                                                 height: 20,
                                                 borderColor: item.color,
                                                 color: item.color,
+                                                transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important',
+                                                willChange: 'transform, box-shadow',
+                                                '&:hover': {
+                                                    transform: 'scale(1.1)',
+                                                    boxShadow: `0 2px 8px ${item.color}40`,
+                                                    backgroundColor: `${item.color}10`,
+                                                },
                                             }}
                                         />
                                     </Box>
                                     <Tooltip title={item.tooltip} arrow>
-                                        <Typography variant="body2" fontWeight="bold">
+                                        <Typography
+                                            variant="body2"
+                                            fontWeight="bold"
+                                            className="score-text"
+                                            sx={{
+                                                transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important',
+                                                willChange: 'transform',
+                                            }}
+                                        >
                                             {item.score.toFixed(1)} / {item.maxPossible}
                                         </Typography>
                                     </Tooltip>
@@ -112,13 +172,19 @@ export function TrustScoreBreakdown({
                                     <LinearProgress
                                         variant="determinate"
                                         value={(item.score / item.maxPossible) * 100}
+                                        className="progress-bar"
                                         sx={{
                                             height: 8,
                                             borderRadius: 4,
                                             backgroundColor: `${item.color}20`,
+                                            transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important',
+                                            willChange: 'transform',
+                                            transformOrigin: 'center',
                                             '& .MuiLinearProgress-bar': {
                                                 backgroundColor: item.color,
                                                 borderRadius: 4,
+                                                transition: 'transform 1s ease-in-out',
+                                                transitionDelay: `${index * 200}ms`,
                                             },
                                         }}
                                     />
@@ -142,11 +208,31 @@ export function TrustScoreBreakdown({
                     borderTop={1}
                     borderColor="divider"
                     textAlign="center"
+                    sx={{
+                        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important',
+                        willChange: 'transform',
+                        '&:hover': {
+                            transform: 'scale(1.02)',
+                            '& .total-score': {
+                                transform: 'scale(1.1)',
+                                textShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+                            },
+                        },
+                    }}
                 >
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                         Total Trust Score
                     </Typography>
-                    <Typography variant="h4" fontWeight="bold" color="primary">
+                    <Typography
+                        variant="h4"
+                        fontWeight="bold"
+                        color="primary"
+                        className="total-score"
+                        sx={{
+                            transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), text-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important',
+                            willChange: 'transform, text-shadow',
+                        }}
+                    >
                         {trustScore.total} / 100
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
