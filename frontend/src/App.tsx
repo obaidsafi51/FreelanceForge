@@ -1,9 +1,9 @@
 
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, Box, Alert } from '@mui/material';
+import { Box } from '@mui/material';
 import { WalletProvider } from './contexts/WalletContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { QueryProvider } from './providers/QueryProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NotificationProvider } from './components/NotificationSystem';
@@ -13,55 +13,12 @@ import { MintCredential } from './pages/MintCredential';
 import { ExportPortfolio } from './pages/ExportPortfolio';
 import { PublicPortfolio } from './pages/PublicPortfolio';
 
-
-// Create Material-UI theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-    background: {
-      default: '#f5f5f5',
-    },
-  },
-  typography: {
-    h3: {
-      fontWeight: 600,
-    },
-    h5: {
-      fontWeight: 500,
-    },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        },
-      },
-    },
-  },
-});
-
 function App() {
-
-
   return (
     <ErrorBoundary>
-      <NotificationProvider>
-        <QueryProvider>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
+      <ThemeProvider>
+        <NotificationProvider>
+          <QueryProvider>
             <WalletProvider>
               <Router>
                 <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -77,9 +34,9 @@ function App() {
                 </Box>
               </Router>
             </WalletProvider>
-          </ThemeProvider>
-        </QueryProvider>
-      </NotificationProvider>
+          </QueryProvider>
+        </NotificationProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

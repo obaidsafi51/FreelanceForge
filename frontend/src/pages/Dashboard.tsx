@@ -24,37 +24,18 @@ import { SimpleErrorBoundary } from '../components/SimpleErrorBoundary';
 export function Dashboard() {
   const [tabValue, setTabValue] = useState(0);
 
-  // Safely get wallet state with error handling
-  let isConnected = false;
-  let selectedAccount = null;
+  // Get wallet state - hooks must be called unconditionally
+  const { isConnected, selectedAccount } = useWallet();
 
-  try {
-    const walletState = useWallet();
-    isConnected = walletState?.isConnected || false;
-    selectedAccount = walletState?.selectedAccount || null;
-  } catch (error) {
-    console.error('Error accessing wallet state:', error);
-    // Continue with default values
-  }
-
-  // Fetch credentials for the connected account (only when connected)
-  let credentials = [];
-  let credentialsLoading = false;
-  let credentialsError = null;
-
-  try {
-    const credentialsQuery = useCredentials(isConnected ? selectedAccount?.address || null : null);
-    credentials = credentialsQuery.data || [];
-    credentialsLoading = credentialsQuery.isLoading || false;
-    credentialsError = credentialsQuery.error || null;
-  } catch (error) {
-    console.error('Error fetching credentials:', error);
-    credentialsError = error;
-  }
+  // Fetch credentials for the connected account
+  const credentialsQuery = useCredentials(isConnected ? selectedAccount?.address || null : null);
+  const credentials = credentialsQuery.data || [];
+  const credentialsLoading = credentialsQuery.isLoading || false;
+  const credentialsError = credentialsQuery.error || null;
 
   const displayCredentials = credentials;
 
-  // Calculate trust score from credentials (with error handling)
+  // Calculate trust score from credentials
   const trustScore = useTrustScore(displayCredentials || []);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -98,7 +79,7 @@ export function Dashboard() {
                     <CredentialTimeline
                       credentials={displayCredentials}
                       loading={credentialsLoading}
-                      error={credentialsError?.message || null}
+                      error={credentialsError instanceof Error ? credentialsError.message : credentialsError ? String(credentialsError) : null}
                       walletAddress={selectedAccount?.address}
                       showVisibilityToggle={true}
                     />

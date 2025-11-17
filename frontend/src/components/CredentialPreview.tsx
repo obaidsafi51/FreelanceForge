@@ -38,25 +38,25 @@ const credentialTypeConfig = {
         label: 'Skill',
         icon: WorkIcon,
         color: '#2196f3',
-        bgColor: '#e3f2fd',
+        bgColor: 'rgba(33, 150, 243, 0.1)',
     },
     review: {
         label: 'Review',
         icon: ReviewsIcon,
         color: '#4caf50',
-        bgColor: '#e8f5e9',
+        bgColor: 'rgba(76, 175, 80, 0.1)',
     },
     payment: {
         label: 'Payment',
         icon: PaymentIcon,
         color: '#ff9800',
-        bgColor: '#fff3e0',
+        bgColor: 'rgba(255, 152, 0, 0.1)',
     },
     certification: {
         label: 'Certification',
         icon: SchoolIcon,
         color: '#9c27b0',
-        bgColor: '#f3e5f5',
+        bgColor: 'rgba(156, 39, 176, 0.1)',
     },
 };
 

@@ -24,6 +24,10 @@ import {
     AccountBalance as AccountBalanceIcon,
     Receipt as ReceiptIcon,
     Warning as WarningIcon,
+    Add as AddIcon,
+    Edit as EditIcon,
+    Delete as DeleteIcon,
+    HelpOutline as HelpIcon,
 } from '@mui/icons-material';
 import { useWallet } from '../contexts/WalletContext';
 import { getNetworkInfo } from '../utils/api';
@@ -92,7 +96,7 @@ export function TransactionPreview({
                 title: 'Loading Transaction',
                 description: 'Preparing transaction details...',
                 color: 'default' as const,
-                icon: '⏳',
+                IconComponent: HelpIcon,
             };
         }
 
@@ -102,28 +106,28 @@ export function TransactionPreview({
                     title: 'Mint Credential NFT',
                     description: 'Create a new soulbound credential NFT on the blockchain',
                     color: 'success' as const,
-                    icon: '🎯',
+                    IconComponent: AddIcon,
                 };
             case 'update_credential':
                 return {
                     title: 'Update Credential',
                     description: 'Modify credential visibility or add proof hash',
                     color: 'info' as const,
-                    icon: '✏️',
+                    IconComponent: EditIcon,
                 };
             case 'delete_credential':
                 return {
                     title: 'Delete Credential',
                     description: 'Permanently remove credential from blockchain',
                     color: 'error' as const,
-                    icon: '🗑️',
+                    IconComponent: DeleteIcon,
                 };
             default:
                 return {
                     title: 'Unknown Transaction',
                     description: 'Unknown transaction type',
                     color: 'default' as const,
-                    icon: '❓',
+                    IconComponent: HelpIcon,
                 };
         }
     };
@@ -212,33 +216,53 @@ export function TransactionPreview({
                 )}
 
                 {/* Transaction Type */}
-                <Card sx={{ mb: 3 }}>
+                <Card sx={{
+                    mb: 3,
+                    background: theme => theme.palette.mode === 'dark'
+                        ? 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)'
+                        : 'linear-gradient(135deg, rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.02) 100%)',
+                    border: theme => theme.palette.mode === 'dark'
+                        ? '1px solid rgba(33, 150, 243, 0.2)'
+                        : '1px solid rgba(33, 150, 243, 0.1)'
+                }}>
                     <CardContent>
                         <Box display="flex" alignItems="center" gap={2} mb={2}>
-                            <Typography variant="h2" sx={{ fontSize: '2rem' }}>
-                                {typeInfo.icon}
-                            </Typography>
-                            <Box>
-                                <Typography variant="h6">
+                            <Box
+                                sx={{
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: '50%',
+                                    background: theme => theme.palette.mode === 'dark'
+                                        ? 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)'
+                                        : 'linear-gradient(135deg, #2196f3 0%, #1565c0 100%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white'
+                                }}
+                            >
+                                <typeInfo.IconComponent sx={{ fontSize: '1.5rem' }} />
+                            </Box>
+                            <Box flex={1}>
+                                <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 600 }}>
                                     {typeInfo.title}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
                                     {typeInfo.description}
                                 </Typography>
                             </Box>
-                            <Box ml="auto">
-                                <Chip
-                                    label={transactionDetails?.type?.replace('_', ' ').toUpperCase() || 'LOADING'}
-                                    color={typeInfo.color}
-                                    size="small"
-                                />
-                            </Box>
                         </Box>
                     </CardContent>
                 </Card>
 
                 {/* Network Information */}
-                <Card sx={{ mb: 3 }}>
+                <Card sx={{
+                    mb: 3,
+                    background: theme => theme.palette.mode === 'dark'
+                        ? 'rgba(26, 29, 35, 0.6)'
+                        : 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(8px)'
+                }}>
                     <CardContent>
                         <Box display="flex" alignItems="center" gap={1} mb={2}>
                             <AccountBalanceIcon color="primary" />
@@ -274,8 +298,20 @@ export function TransactionPreview({
                                     <Typography variant="body2" color="text.secondary">
                                         Account
                                     </Typography>
-                                    <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                                        {selectedAccount?.address}
+                                    <Typography
+                                        variant="body1"
+                                        sx={{
+                                            fontFamily: 'monospace',
+                                            fontSize: '0.75rem',
+                                            wordBreak: 'break-all',
+                                            lineHeight: 1.2
+                                        }}
+                                        title={selectedAccount?.address}
+                                    >
+                                        {selectedAccount?.address ?
+                                            `${selectedAccount.address.slice(0, 8)}...${selectedAccount.address.slice(-8)}` :
+                                            'No account'
+                                        }
                                     </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
@@ -296,7 +332,13 @@ export function TransactionPreview({
                 </Card>
 
                 {/* Transaction Details */}
-                <Card sx={{ mb: 3 }}>
+                <Card sx={{
+                    mb: 3,
+                    background: theme => theme.palette.mode === 'dark'
+                        ? 'rgba(26, 29, 35, 0.6)'
+                        : 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(8px)'
+                }}>
                     <CardContent>
                         <Box display="flex" alignItems="center" gap={1} mb={2}>
                             <ReceiptIcon color="primary" />
@@ -329,16 +371,21 @@ export function TransactionPreview({
                             <Accordion>
                                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                                     <Typography variant="body2">
-                                        Credential Data ({JSON.stringify(transactionDetails?.credentialData || {}).length} bytes)
+                                        Credential Data
                                     </Typography>
                                 </AccordionSummary>
                                 <AccordionDetails>
-                                    <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
+                                    <Box sx={{
+                                        bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
+                                        p: 2,
+                                        borderRadius: 1
+                                    }}>
                                         <Typography variant="body2" component="pre" sx={{
                                             fontFamily: 'monospace',
                                             fontSize: '0.75rem',
                                             whiteSpace: 'pre-wrap',
                                             wordBreak: 'break-word',
+                                            color: 'text.primary'
                                         }}>
                                             {JSON.stringify(transactionDetails?.credentialData || {}, null, 2)}
                                         </Typography>
@@ -375,7 +422,11 @@ export function TransactionPreview({
                                     </Typography>
                                 </AccordionSummary>
                                 <AccordionDetails>
-                                    <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
+                                    <Box sx={{
+                                        bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'grey.50',
+                                        p: 2,
+                                        borderRadius: 1
+                                    }}>
                                         {Object.entries(transactionDetails?.parameters || {}).map(([key, value]) => (
                                             <Box key={key} mb={1}>
                                                 <Typography variant="caption" color="text.secondary">
@@ -387,6 +438,7 @@ export function TransactionPreview({
                                                     ml: 1,
                                                     whiteSpace: 'pre-wrap',
                                                     wordBreak: 'break-word',
+                                                    color: 'text.primary'
                                                 }}>
                                                     {formatParameterValue(key, value)}
                                                 </Typography>
